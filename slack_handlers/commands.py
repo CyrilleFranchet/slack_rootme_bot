@@ -20,6 +20,7 @@ from services.rootme_client import (
     RootMeAuthenticationError,
     RootMeClient,
     RootMeProfile,
+    RootMeRateLimitError,
 )
 from utils.formatter import (
     build_candidate_selection_blocks,
@@ -134,6 +135,15 @@ def _handle_ranking_command(
             blocks=build_error_blocks(
                 title="Root-Me authentication failed",
                 body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
+            ),
+            response_type="ephemeral",
+        )
+        return
+    except RootMeRateLimitError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me rate limit reached",
+                body="Root-Me is temporarily rate limiting requests. Wait a bit and try the command again.",
             ),
             response_type="ephemeral",
         )
@@ -331,6 +341,15 @@ def _search_profiles_or_respond(
             blocks=build_error_blocks(
                 title="Root-Me authentication failed",
                 body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
+            ),
+            response_type="ephemeral",
+        )
+        return None
+    except RootMeRateLimitError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me rate limit reached",
+                body="Root-Me is temporarily rate limiting requests. Wait a bit and try the command again.",
             ),
             response_type="ephemeral",
         )

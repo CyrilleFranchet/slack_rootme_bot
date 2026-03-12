@@ -1,4 +1,4 @@
-from services.rootme_client import RootMeClient
+from services.rootme_client import RootMeClient, RootMeRateLimitError
 
 
 def test_build_profile_parses_author_and_validations_payloads() -> None:
@@ -100,6 +100,12 @@ def test_extract_next_href_from_paginated_search_payload() -> None:
     ]
 
     assert client._extract_next_href(payload) == "https://api.www.root-me.org/auteurs?nom=Phil&debut_auteurs=50"
+
+
+def test_rate_limit_error_type_is_available() -> None:
+    error = RootMeRateLimitError("rate limited")
+
+    assert str(error) == "rate limited"
 
 
 def test_search_exact_candidate_ids_keeps_only_exact_matches_across_pages() -> None:

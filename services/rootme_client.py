@@ -21,6 +21,10 @@ class RootMeAuthenticationError(RootMeApiError):
     """Raised when the Root-Me API key is missing or invalid."""
 
 
+class RootMeRateLimitError(RootMeApiError):
+    """Raised when the Root-Me API rate limit has been exceeded."""
+
+
 class RootMeUserNotFoundError(RootMeApiError):
     """Raised when a Root-Me username cannot be found."""
 
@@ -159,7 +163,11 @@ class RootMeClient:
                     raise RootMeAuthenticationError(
                         "The Root-Me API rejected the configured API key."
                     )
-                if response.status_code in {429, 500, 502, 503, 504}:
+                if response.status_code == 429:
+                    raise RootMeRateLimitError(
+                        "The Root-Me API rate limit has been reached."
+                    )
+                if response.status_code in {500, 502, 503, 504}:
                     raise RootMeApiError(
                         f"Transient Root-Me API error ({response.status_code})."
                     )
@@ -181,6 +189,17 @@ class RootMeClient:
                 raise
             except RootMeAuthenticationError:
                 raise
+            except RootMeRateLimitError as exc:
+                logger.warning(
+                    "Root-Me API rate limit reached",
+                    extra={"path": path, "attempt": attempt, "error": str(exc)},
+                )
+                if attempt == attempts:
+                    raise RootMeRateLimitError(
+                        "The Root-Me API rate limit has been reached. Please try again shortly."
+                    ) from exc
+                await asyncio.sleep(backoff_seconds * 3)
+                backoff_seconds *= 2
             except (httpx.HTTPError, RootMeApiError) as exc:
                 logger.warning(
                     "Root-Me API request failed",

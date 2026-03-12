@@ -14,7 +14,12 @@ from db.models import (
     delete_member,
     get_member_by_rootme_id,
 )
-from services.rootme_client import RootMeApiError, RootMeAuthenticationError, RootMeClient
+from services.rootme_client import (
+    RootMeApiError,
+    RootMeAuthenticationError,
+    RootMeClient,
+    RootMeRateLimitError,
+)
 from utils.formatter import (
     build_error_blocks,
     build_member_added_blocks,
@@ -182,6 +187,15 @@ def _fetch_profile_or_respond(
             blocks=build_error_blocks(
                 title="Root-Me authentication failed",
                 body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
+            ),
+            replace_original=replace_original,
+            response_type="ephemeral",
+        )
+    except RootMeRateLimitError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me rate limit reached",
+                body="Root-Me is temporarily rate limiting requests. Wait a bit and try again.",
             ),
             replace_original=replace_original,
             response_type="ephemeral",
