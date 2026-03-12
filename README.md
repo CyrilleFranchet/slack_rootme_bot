@@ -22,6 +22,8 @@ M3 adds tracked member management:
 - `/rootme remove <username>`
 - interactive delete confirmation buttons
 
+The ranking is refreshed in the background and served from cached database snapshots instead of live Root-Me calls.
+
 ## Requirements
 
 - Python 3.11+
@@ -80,7 +82,7 @@ When the bot is connected, run `/rootme help` in Slack to verify the integration
 ## Commands
 
 - `/rootme help` shows the supported commands.
-- `/rootme ranking` fetches every tracked member from the `members` SQLite table and posts the leaderboard in-channel.
+- `/rootme ranking` reads cached ranking snapshots from SQLite and posts the leaderboard in-channel.
 - `/rootme profile <username>` fetches a single Root-Me profile and returns the details as an ephemeral reply.
 - `/rootme add <username>` validates the username against Root-Me, then stores it in SQLite.
 - `/rootme remove <username>` opens a confirmation prompt with interactive buttons before deletion.
@@ -92,6 +94,10 @@ French aliases are also supported:
 - `/rootme profil <username>`
 - `/rootme ajouter <username>`
 - `/rootme supprimer <username>`
+
+## Ranking cache
+
+The bot refreshes ranking snapshots in the background every hour by default and stores them in SQLite. Adjust the schedule with `RANKING_REFRESH_INTERVAL_SECONDS` in `.env`.
 
 ## Deployment automation
 

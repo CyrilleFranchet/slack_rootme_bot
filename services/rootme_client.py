@@ -91,6 +91,22 @@ class RootMeClient:
         profiles = await asyncio.gather(*(self.get_profile_by_id(author_id) for author_id in author_ids))
         return list(profiles)
 
+    async def get_ranking_profile_by_id(self, author_id: int) -> RootMeProfile:
+        author_payload = await self._request_json(f"/auteurs/{author_id}")
+        author = self._unwrap_object(author_payload)
+        fallback_username = self._pick_str(author, "nom", "name", default=str(author_id)) or str(author_id)
+        return self._build_profile(
+            author_payload,
+            validations_payload=[],
+            fallback_username=fallback_username,
+        )
+
+    async def get_ranking_profiles_by_ids(self, author_ids: list[int]) -> list[RootMeProfile]:
+        profiles = await asyncio.gather(
+            *(self.get_ranking_profile_by_id(author_id) for author_id in author_ids)
+        )
+        return list(profiles)
+
     async def search_profiles(self, username: str) -> list[RootMeProfile]:
         candidate_ids = await self._search_exact_candidate_ids(username)
         if not candidate_ids:

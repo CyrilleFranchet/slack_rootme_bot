@@ -9,6 +9,7 @@ from config import Settings
 from db.database import initialize_database
 from slack_handlers.commands import register_commands
 from slack_handlers.interactions import register_interactions
+from services.ranking_refresh import start_ranking_refresh_loop
 
 
 logging.basicConfig(
@@ -30,6 +31,7 @@ def create_app(settings: Settings) -> App:
 def main() -> None:
     settings = Settings.from_env()
     initialize_database(settings.database_path)
+    start_ranking_refresh_loop(settings)
     app = create_app(settings)
     handler = SocketModeHandler(app, settings.slack_app_token)
     handler.start()

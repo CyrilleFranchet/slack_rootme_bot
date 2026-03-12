@@ -9,6 +9,19 @@ def initialize_database(database_path: Path) -> None:
     with sqlite3.connect(database_path) as connection:
         connection.execute("PRAGMA journal_mode=WAL;")
         _migrate_members_table(connection)
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cache_scores (
+                rootme_id INTEGER PRIMARY KEY,
+                rootme_pseudo TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                global_rank INTEGER,
+                challenges_count INTEGER NOT NULL,
+                profile_url TEXT NOT NULL,
+                fetched_at TEXT NOT NULL
+            )
+            """
+        )
 
 
 def _migrate_members_table(connection: sqlite3.Connection) -> None:

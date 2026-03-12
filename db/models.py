@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 import sqlite3
 
@@ -12,6 +13,17 @@ class Member:
     rootme_id: int | None
     added_by: str | None
     added_at: str
+
+
+@dataclass(frozen=True)
+class CachedScore:
+    rootme_id: int
+    rootme_pseudo: str
+    score: int
+    global_rank: int | None
+    challenges_count: int
+    profile_url: str
+    fetched_at: datetime
 
 
 class MemberAlreadyExistsError(Exception):
@@ -128,8 +140,91 @@ def delete_member(database_path: Path, member_id: int) -> Member:
             """,
             (member.id,),
         )
+        if member.rootme_id is not None:
+            connection.execute(
+                """
+                DELETE FROM cache_scores
+                WHERE rootme_id = ?
+                """,
+                (member.rootme_id,),
+            )
 
     return member
+
+
+def upsert_cached_score(
+    database_path: Path,
+    *,
+    rootme_id: int,
+    rootme_pseudo: str,
+    score: int,
+    global_rank: int | None,
+    challenges_count: int,
+    profile_url: str,
+    fetched_at: datetime,
+) -> None:
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO cache_scores (
+                rootme_id,
+                rootme_pseudo,
+                score,
+                global_rank,
+                challenges_count,
+                profile_url,
+                fetched_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(rootme_id) DO UPDATE SET
+                rootme_pseudo = excluded.rootme_pseudo,
+                score = excluded.score,
+                global_rank = excluded.global_rank,
+                challenges_count = excluded.challenges_count,
+                profile_url = excluded.profile_url,
+                fetched_at = excluded.fetched_at
+            """,
+            (
+                rootme_id,
+                rootme_pseudo,
+                score,
+                global_rank,
+                challenges_count,
+                profile_url,
+                fetched_at.isoformat(),
+            ),
+        )
+
+
+def list_cached_scores_for_members(database_path: Path) -> list[CachedScore]:
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT
+                cache_scores.rootme_id,
+                cache_scores.rootme_pseudo,
+                cache_scores.score,
+                cache_scores.global_rank,
+                cache_scores.challenges_count,
+                cache_scores.profile_url,
+                cache_scores.fetched_at
+            FROM cache_scores
+            INNER JOIN members ON members.rootme_id = cache_scores.rootme_id
+            ORDER BY cache_scores.score DESC, cache_scores.rootme_pseudo ASC
+            """
+        ).fetchall()
+
+    return [
+        CachedScore(
+            rootme_id=int(row[0]),
+            rootme_pseudo=str(row[1]),
+            score=int(row[2]),
+            global_rank=int(row[3]) if row[3] is not None else None,
+            challenges_count=int(row[4]),
+            profile_url=str(row[5]),
+            fetched_at=datetime.fromisoformat(str(row[6])),
+        )
+        for row in rows
+    ]
 
 
 def _row_to_member(row: tuple[object, ...]) -> Member:

@@ -21,6 +21,7 @@ class Settings:
     cache_ttl_seconds: int = 300
     rootme_request_delay_ms: int = 500
     rootme_timeout_seconds: float = 10.0
+    ranking_refresh_interval_seconds: int = 3600
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -34,6 +35,10 @@ class Settings:
             cache_ttl_seconds=_get_int_env("CACHE_TTL_SECONDS", default=300),
             rootme_request_delay_ms=_get_int_env("ROOTME_REQUEST_DELAY_MS", default=500),
             rootme_timeout_seconds=_get_float_env("ROOTME_TIMEOUT_SECONDS", default=10.0),
+            ranking_refresh_interval_seconds=_get_int_env(
+                "RANKING_REFRESH_INTERVAL_SECONDS",
+                default=3600,
+            ),
         )
 
 

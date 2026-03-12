@@ -11,6 +11,7 @@ from db.models import (
     MemberAlreadyExistsError,
     add_member,
     get_member_by_rootme_id,
+    list_cached_scores_for_members,
     list_members,
     list_members_by_pseudo,
 )
@@ -65,7 +66,6 @@ def register_commands(app: App, settings: Settings) -> None:
             _handle_ranking_command(
                 respond,
                 settings=settings,
-                rootme_client=_build_rootme_client(settings),
             )
             return
 
@@ -120,43 +120,36 @@ def _handle_ranking_command(
     respond: Any,
     *,
     settings: Settings,
-    rootme_client: RootMeClient,
 ) -> None:
     members = list_members(settings.database_path)
     if not members:
         respond(blocks=build_empty_ranking_blocks(), response_type="ephemeral")
         return
 
-    rootme_ids = [member.rootme_id for member in members if member.rootme_id is not None]
-    try:
-        profiles = asyncio.run(rootme_client.get_profiles_by_ids(rootme_ids))
-    except RootMeAuthenticationError:
+    cached_scores = list_cached_scores_for_members(settings.database_path)
+    if not cached_scores:
         respond(
             blocks=build_error_blocks(
-                title="Root-Me authentication failed",
-                body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
+                title="Ranking cache is empty",
+                body="No cached ranking data is available yet. Wait for the background refresh to run, then try again.",
             ),
             response_type="ephemeral",
         )
         return
-    except RootMeRateLimitError:
-        respond(
-            blocks=build_error_blocks(
-                title="Root-Me rate limit reached",
-                body="Root-Me is temporarily rate limiting requests. Wait a bit and try the command again.",
-            ),
-            response_type="ephemeral",
+
+    profiles = [
+        RootMeProfile(
+            id=cached.rootme_id,
+            username=cached.rootme_pseudo,
+            score=cached.score,
+            global_rank=cached.global_rank,
+            challenges_count=cached.challenges_count,
+            profile_url=cached.profile_url,
+            categories=(),
+            fetched_at=cached.fetched_at,
         )
-        return
-    except RootMeApiError:
-        respond(
-            blocks=build_error_blocks(
-                title="Root-Me API unavailable",
-                body="The Root-Me API is temporarily unavailable. Please try again in a few minutes.",
-            ),
-            response_type="ephemeral",
-        )
-        return
+        for cached in cached_scores
+    ]
 
     ranking_entries = build_ranking(profiles)
     updated_at = max(
