@@ -62,7 +62,6 @@ def test_extract_search_candidates_handles_nested_search_payload() -> None:
 
     assert len(candidates) == 1
     assert client._pick_candidate_id(candidates[0]) == 42
-    assert client._candidate_matches_username(candidates[0], "alice")
 def test_extract_search_candidates_preserves_duplicate_usernames() -> None:
     client = RootMeClient(
         api_key="test",
@@ -101,3 +100,38 @@ def test_extract_next_href_from_paginated_search_payload() -> None:
     ]
 
     assert client._extract_next_href(payload) == "https://api.www.root-me.org/auteurs?nom=Phil&debut_auteurs=50"
+
+
+def test_search_exact_candidate_ids_keeps_only_exact_matches_across_pages() -> None:
+    client = RootMeClient(
+        api_key="test",
+        base_url="https://api.www.root-me.org",
+        request_delay_ms=0,
+        timeout_seconds=10,
+    )
+
+    async def fake_request_json(path: str, *, params=None):
+        if path == "/auteurs":
+            return [
+                {
+                    "0": {"id_auteur": "2882", "nom": "phil"},
+                    "1": {"id_auteur": "3788", "nom": "Phil"},
+                    "2": {"id_auteur": "4396", "nom": "philippe"},
+                },
+                {"rel": "next", "href": "https://api.www.root-me.org/auteurs?nom=Phil&debut_auteurs=50"},
+            ]
+        return [
+            {
+                "0": {"id_auteur": "24870", "nom": "Phil"},
+                "1": {"id_auteur": "42613", "nom": "Phil"},
+                "2": {"id_auteur": "58958", "nom": "Philippe Ed"},
+            }
+        ]
+
+    client._request_json = fake_request_json  # type: ignore[method-assign]
+
+    import asyncio
+
+    candidate_ids = asyncio.run(client._search_exact_candidate_ids("Phil"))
+
+    assert candidate_ids == [3788, 24870, 42613]

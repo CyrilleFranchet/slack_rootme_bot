@@ -88,27 +88,22 @@ class RootMeClient:
         return list(profiles)
 
     async def search_profiles(self, username: str) -> list[RootMeProfile]:
-        candidates = await self._search_candidates_across_pages(username)
-        candidate_ids: list[int] = []
-        for candidate in candidates:
-            candidate_name = self._pick_str(
-                candidate,
-                "nom",
-                "name",
-                "titre",
-                "title",
-                "pseudo",
-                "login",
-            )
-            candidate_id = self._pick_candidate_id(candidate)
-            if candidate_id is None or candidate_name is None:
-                continue
-            if candidate_name == username and candidate_id not in candidate_ids:
-                candidate_ids.append(candidate_id)
-
+        candidate_ids = await self._search_exact_candidate_ids(username)
         if not candidate_ids:
-            lowered_query = username.lower()
-            for candidate in candidates:
+            return []
+
+        profiles = await self.get_profiles_by_ids(candidate_ids)
+        return [profile for profile in profiles if profile.username == username]
+
+    async def _search_exact_candidate_ids(self, username: str) -> list[int]:
+        candidate_ids: list[int] = []
+        seen_ids: set[int] = set()
+        next_path: str | None = "/auteurs"
+        next_params: dict[str, Any] | None = {"nom": username}
+
+        while next_path is not None:
+            payload = await self._request_json(next_path, params=next_params)
+            for candidate in self._extract_search_candidates(payload):
                 candidate_name = self._pick_str(
                     candidate,
                     "nom",
@@ -119,36 +114,12 @@ class RootMeClient:
                     "login",
                 )
                 candidate_id = self._pick_candidate_id(candidate)
-                if candidate_id is None or candidate_name is None:
+                if candidate_id is None or candidate_name is None or candidate_id in seen_ids:
                     continue
-                if candidate_name.lower() == lowered_query and candidate_id not in candidate_ids:
-                    candidate_ids.append(candidate_id)
-
-        if not candidate_ids:
-            return []
-
-        profiles = await self.get_profiles_by_ids(candidate_ids)
-        exact_profiles = [profile for profile in profiles if profile.username == username]
-        if exact_profiles:
-            return exact_profiles
-
-        lowered_query = username.lower()
-        return [profile for profile in profiles if profile.username.lower() == lowered_query]
-
-    async def _search_candidates_across_pages(self, username: str) -> list[dict[str, Any]]:
-        candidates: list[dict[str, Any]] = []
-        seen_ids: set[int] = set()
-        next_path: str | None = "/auteurs"
-        next_params: dict[str, Any] | None = {"nom": username}
-
-        while next_path is not None:
-            payload = await self._request_json(next_path, params=next_params)
-            for candidate in self._extract_search_candidates(payload):
-                candidate_id = self._pick_candidate_id(candidate)
-                if candidate_id is None or candidate_id in seen_ids:
+                if candidate_name != username:
                     continue
                 seen_ids.add(candidate_id)
-                candidates.append(candidate)
+                candidate_ids.append(candidate_id)
 
             next_href = self._extract_next_href(payload)
             if next_href:
@@ -158,7 +129,7 @@ class RootMeClient:
                 next_path = None
                 next_params = None
 
-        return candidates
+        return candidate_ids
 
     async def _request_json(
         self,
