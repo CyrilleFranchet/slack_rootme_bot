@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import UTC, datetime
+import sqlite3
 
 from db.database import initialize_database
 from db.models import (
@@ -106,3 +107,43 @@ def test_list_cached_scores_for_members_returns_only_tracked_members(tmp_path: P
     assert cached_scores[0].rootme_rank == 10
     assert cached_scores[0].rootme_position == 20
     assert cached_scores[0].recent_resolutions[0].title == "XSS 101"
+
+
+def test_list_cached_scores_for_members_tolerates_invalid_resolution_json(tmp_path: Path) -> None:
+    database_path = tmp_path / "bot.db"
+    initialize_database(database_path)
+
+    add_member(database_path, rootme_pseudo="alice", rootme_id=42, added_by="U123")
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO cache_scores (
+                rootme_id,
+                rootme_pseudo,
+                score,
+                rootme_rank,
+                rootme_position,
+                challenges_count,
+                profile_url,
+                recent_resolutions_json,
+                fetched_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                42,
+                "alice",
+                100,
+                10,
+                20,
+                5,
+                "https://www.root-me.org/alice",
+                "",
+                datetime(2026, 3, 12, 12, 0, tzinfo=UTC).isoformat(),
+            ),
+        )
+
+    cached_scores = list_cached_scores_for_members(database_path)
+
+    assert len(cached_scores) == 1
+    assert cached_scores[0].recent_resolutions == ()

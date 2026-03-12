@@ -276,7 +276,11 @@ def _row_to_member(row: tuple[object, ...]) -> Member:
 
 
 def _row_to_cached_score(row: tuple[object, ...]) -> CachedScore:
-    resolutions_payload = json.loads(str(row[6]))
+    recent_resolutions_raw = row[7]
+    try:
+        resolutions_payload = json.loads(str(recent_resolutions_raw or "[]"))
+    except json.JSONDecodeError:
+        resolutions_payload = []
     recent_resolutions = tuple(
         ChallengeResolution(
             title=str(item.get("title", "")),
