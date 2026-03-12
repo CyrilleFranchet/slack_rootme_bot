@@ -3,14 +3,22 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import logging
 import math
 from typing import Any
 
 import httpx
 
 
+logger = logging.getLogger(__name__)
+
+
 class RootMeApiError(Exception):
     """Raised when the Root-Me API cannot satisfy a request."""
+
+
+class RootMeAuthenticationError(RootMeApiError):
+    """Raised when the Root-Me API key is missing or invalid."""
 
 
 class RootMeUserNotFoundError(RootMeApiError):
@@ -113,16 +121,37 @@ class RootMeClient:
 
                 if response.status_code == 404:
                     raise RootMeUserNotFoundError("The requested Root-Me resource was not found.")
+                if response.status_code in {401, 403}:
+                    raise RootMeAuthenticationError(
+                        "The Root-Me API rejected the configured API key."
+                    )
                 if response.status_code in {429, 500, 502, 503, 504}:
                     raise RootMeApiError(
                         f"Transient Root-Me API error ({response.status_code})."
                     )
+                if response.is_error:
+                    logger.warning(
+                        "Unexpected Root-Me API response",
+                        extra={
+                            "status_code": response.status_code,
+                            "path": path,
+                            "response_text": response.text[:500],
+                        },
+                    )
+                    raise RootMeApiError(
+                        f"Unexpected Root-Me API response ({response.status_code})."
+                    )
 
-                response.raise_for_status()
                 return response.json()
             except RootMeUserNotFoundError:
                 raise
+            except RootMeAuthenticationError:
+                raise
             except (httpx.HTTPError, RootMeApiError) as exc:
+                logger.warning(
+                    "Root-Me API request failed",
+                    extra={"path": path, "attempt": attempt, "error": str(exc)},
+                )
                 if attempt == attempts:
                     raise RootMeApiError(
                         "The Root-Me API is temporarily unavailable."

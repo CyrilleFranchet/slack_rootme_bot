@@ -9,7 +9,12 @@ from slack_bolt import App
 from config import Settings
 from db.models import list_members
 from services.ranking import build_ranking
-from services.rootme_client import RootMeApiError, RootMeClient, RootMeUserNotFoundError
+from services.rootme_client import (
+    RootMeApiError,
+    RootMeAuthenticationError,
+    RootMeClient,
+    RootMeUserNotFoundError,
+)
 from utils.formatter import (
     build_empty_ranking_blocks,
     build_error_blocks,
@@ -92,6 +97,15 @@ def _handle_ranking_command(
         profiles = asyncio.run(
             rootme_client.get_profiles([member.rootme_pseudo for member in members])
         )
+    except RootMeAuthenticationError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me authentication failed",
+                body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
+            ),
+            response_type="ephemeral",
+        )
+        return
     except RootMeApiError:
         respond(
             blocks=build_error_blocks(
@@ -136,6 +150,15 @@ def _handle_profile_command(
             blocks=build_error_blocks(
                 title="Profile not found",
                 body=f"The Root-Me username `{username}` was not found. Check the spelling and try again.",
+            ),
+            response_type="ephemeral",
+        )
+        return
+    except RootMeAuthenticationError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me authentication failed",
+                body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
             ),
             response_type="ephemeral",
         )
