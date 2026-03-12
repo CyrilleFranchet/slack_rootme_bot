@@ -76,20 +76,44 @@ class RootMeClient:
 
     async def _search_author(self, username: str) -> tuple[int, str]:
         payload = await self._request_json("/auteurs", params={"nom": username})
-        candidates = self._extract_items(payload)
+        candidates = self._extract_search_candidates(payload)
 
         for candidate in candidates:
-            candidate_name = self._pick_str(candidate, "nom", "name", "titre")
-            candidate_id = self._pick_int(candidate, "id", "id_auteur", "auteur")
+            candidate_name = self._pick_str(
+                candidate,
+                "nom",
+                "name",
+                "titre",
+                "title",
+                "pseudo",
+                "login",
+            )
+            candidate_id = self._pick_candidate_id(candidate)
             if candidate_id is None or candidate_name is None:
                 continue
             if candidate_name.lower() == username.lower():
                 return candidate_id, candidate_name
 
         if candidates:
-            first = candidates[0]
-            candidate_id = self._pick_int(first, "id", "id_auteur", "auteur")
-            candidate_name = self._pick_str(first, "nom", "name", "titre", default=username)
+            exactish_match = next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if self._candidate_matches_username(candidate, username)
+                ),
+                candidates[0],
+            )
+            candidate_id = self._pick_candidate_id(exactish_match)
+            candidate_name = self._pick_str(
+                exactish_match,
+                "nom",
+                "name",
+                "titre",
+                "title",
+                "pseudo",
+                "login",
+                default=username,
+            )
             if candidate_id is not None:
                 return candidate_id, candidate_name
 
@@ -261,6 +285,78 @@ class RootMeClient:
             if all(not isinstance(value, (list, dict)) for value in payload.values()):
                 return [payload]
         return []
+
+    def _extract_search_candidates(self, payload: Any) -> list[dict[str, Any]]:
+        seen: set[int] = set()
+        candidates: list[dict[str, Any]] = []
+
+        for item in self._walk_dicts(payload):
+            if self._pick_candidate_id(item) is None:
+                continue
+            if self._pick_str(
+                item,
+                "nom",
+                "name",
+                "titre",
+                "title",
+                "pseudo",
+                "login",
+            ) is None:
+                continue
+
+            marker = id(item)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            candidates.append(item)
+
+        return candidates
+
+    def _candidate_matches_username(self, candidate: dict[str, Any], username: str) -> bool:
+        candidate_name = self._pick_str(
+            candidate,
+            "nom",
+            "name",
+            "titre",
+            "title",
+            "pseudo",
+            "login",
+        )
+        if candidate_name is None:
+            return False
+
+        candidate_name = candidate_name.lower()
+        username = username.lower()
+        return candidate_name == username or username in candidate_name
+
+    def _pick_candidate_id(self, payload: dict[str, Any]) -> int | None:
+        candidate_id = self._pick_int(payload, "id", "id_auteur", "auteur", "author_id", "user_id")
+        if candidate_id is not None:
+            return candidate_id
+
+        nested_author = payload.get("auteur") or payload.get("author") or payload.get("user")
+        if isinstance(nested_author, dict):
+            return self._pick_int(
+                nested_author,
+                "id",
+                "id_auteur",
+                "auteur",
+                "author_id",
+                "user_id",
+            )
+        return None
+
+    @classmethod
+    def _walk_dicts(cls, payload: Any) -> list[dict[str, Any]]:
+        found: list[dict[str, Any]] = []
+        if isinstance(payload, dict):
+            found.append(payload)
+            for value in payload.values():
+                found.extend(cls._walk_dicts(value))
+        elif isinstance(payload, list):
+            for item in payload:
+                found.extend(cls._walk_dicts(item))
+        return found
 
     @staticmethod
     def _unwrap_object(payload: Any) -> dict[str, Any]:
