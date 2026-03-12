@@ -30,7 +30,7 @@ class Settings:
             slack_app_token=_require_env("SLACK_APP_TOKEN"),
             rootme_api_key=_require_env("ROOTME_API_KEY"),
             database_path=Path(os.getenv("DATABASE_PATH", "./data/bot.db")),
-            rootme_api_base_url=os.getenv("ROOTME_API_BASE_URL", "https://api.root-me.org"),
+            rootme_api_base_url=os.getenv("ROOTME_API_BASE_URL", "https://api.www.root-me.org"),
             cache_ttl_seconds=_get_int_env("CACHE_TTL_SECONDS", default=300),
             rootme_request_delay_ms=_get_int_env("ROOTME_REQUEST_DELAY_MS", default=500),
             rootme_timeout_seconds=_get_float_env("ROOTME_TIMEOUT_SECONDS", default=10.0),

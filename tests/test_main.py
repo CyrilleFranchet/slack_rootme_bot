@@ -26,5 +26,5 @@ def test_settings_loads_rootme_api_defaults(monkeypatch: pytest.MonkeyPatch) -> 
 
     settings = Settings.from_env()
 
-    assert settings.rootme_api_base_url == "https://api.root-me.org"
+    assert settings.rootme_api_base_url == "https://api.www.root-me.org"
     assert settings.rootme_timeout_seconds == 10.0

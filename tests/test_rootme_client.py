@@ -4,7 +4,7 @@ from services.rootme_client import RootMeClient
 def test_build_profile_parses_author_and_validations_payloads() -> None:
     client = RootMeClient(
         api_key="test",
-        base_url="https://api.root-me.org",
+        base_url="https://api.www.root-me.org",
         request_delay_ms=0,
         timeout_seconds=10,
     )
