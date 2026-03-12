@@ -8,6 +8,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from config import Settings
 from db.database import initialize_database
 from slack_handlers.commands import register_commands
+from slack_handlers.interactions import register_interactions
 
 
 logging.basicConfig(
@@ -22,6 +23,7 @@ def create_app(settings: Settings) -> App:
         signing_secret=settings.slack_signing_secret,
     )
     register_commands(app, settings)
+    register_interactions(app, settings)
     return app
 
 

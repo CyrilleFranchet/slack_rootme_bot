@@ -16,7 +16,11 @@ M2 adds the live Root-Me integration for:
 - `/rootme ranking`
 - `/rootme profile <username>`
 
-Tracked member management is still planned for a later milestone.
+M3 adds tracked member management:
+
+- `/rootme add <username>`
+- `/rootme remove <username>`
+- interactive delete confirmation buttons
 
 ## Requirements
 
@@ -41,6 +45,7 @@ Recommended OAuth scopes:
 Recommended Socket Mode setting:
 
 - Enable Socket Mode and create an app-level token with the `connections:write` scope.
+- Keep interactivity enabled in the Slack app because `/rootme remove <username>` uses buttons.
 
 ## Slack app manifest
 
@@ -62,6 +67,8 @@ After import, you still need to create the Socket Mode app-level token manually:
 3. Under `App-Level Tokens`, generate a token with the `connections:write` scope.
 4. Store it as `SLACK_APP_TOKEN` in `.env`.
 
+The manifest also enables interactivity, which is required for the `/rootme remove <username>` confirmation buttons.
+
 ## Run
 
 ```bash
@@ -70,13 +77,21 @@ python main.py
 
 When the bot is connected, run `/rootme help` in Slack to verify the integration.
 
-## M2 command behavior
+## Commands
 
 - `/rootme help` shows the supported commands.
 - `/rootme ranking` fetches every tracked member from the `members` SQLite table and posts the leaderboard in-channel.
 - `/rootme profile <username>` fetches a single Root-Me profile and returns the details as an ephemeral reply.
+- `/rootme add <username>` validates the username against Root-Me, then stores it in SQLite.
+- `/rootme remove <username>` opens a confirmation prompt with interactive buttons before deletion.
 
-Because M3 has not been implemented yet, the member list must currently be populated directly in SQLite if you want `/rootme ranking` to return data.
+French aliases are also supported:
+
+- `/rootme aide`
+- `/rootme classement`
+- `/rootme profil <username>`
+- `/rootme ajouter <username>`
+- `/rootme supprimer <username>`
 
 ## Deployment automation
 

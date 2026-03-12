@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from typing import Any
 
 from services.ranking import RankingEntry
@@ -34,7 +35,11 @@ def build_help_blocks(
                     "*`/rootme ranking`*\n"
                     "Show the tracked-member leaderboard.\n\n"
                     "*`/rootme profile <username>`*\n"
-                    "Show details for a specific Root-Me profile."
+                    "Show details for a specific Root-Me profile.\n\n"
+                    "*`/rootme add <username>`*\n"
+                    "Validate and add a tracked Root-Me member.\n\n"
+                    "*`/rootme remove <username>`*\n"
+                    "Ask for confirmation, then remove a tracked member."
                 ),
             },
         },
@@ -44,8 +49,8 @@ def build_help_blocks(
                 {
                     "type": "mrkdwn",
                     "text": (
-                        "Aliases: `/rootme classement` and `/rootme profil <username>`. "
-                        "Planned next: `/rootme add <username>` and `/rootme remove <username>`."
+                        "Aliases: `/rootme aide`, `/rootme classement`, `/rootme profil <username>`, "
+                        "`/rootme ajouter <username>`, and `/rootme supprimer <username>`."
                     ),
                 }
             ],
@@ -78,7 +83,7 @@ def build_empty_ranking_blocks() -> list[dict[str, Any]]:
                 "type": "mrkdwn",
                 "text": (
                     "No tracked members are stored yet. "
-                    "M3 will add slash commands for managing the member list."
+                    "Use `/rootme add <username>` to start tracking someone."
                 ),
             },
         },
@@ -141,6 +146,85 @@ def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
         )
 
     return blocks
+
+
+def build_member_added_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": ":white_check_mark: Member added"},
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"*{profile.username}* is now tracked.\n"
+                    f"Score: {profile.score:,} pts\n"
+                    f"Global rank: {_format_global_rank(profile.global_rank)}"
+                ),
+            },
+        },
+    ]
+
+
+def build_remove_confirmation_blocks(rootme_pseudo: str) -> list[dict[str, Any]]:
+    payload = json.dumps({"rootme_pseudo": rootme_pseudo})
+    return [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": ":warning: Confirm member removal"},
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"Remove *{rootme_pseudo}* from the tracked Root-Me members?",
+            },
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Remove"},
+                    "style": "danger",
+                    "action_id": "confirm_remove_member",
+                    "value": payload,
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Cancel"},
+                    "action_id": "cancel_remove_member",
+                    "value": payload,
+                },
+            ],
+        },
+    ]
+
+
+def build_member_removed_blocks(rootme_pseudo: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f":wastebasket: *{rootme_pseudo}* is no longer tracked.",
+            },
+        }
+    ]
+
+
+def build_remove_cancelled_blocks(rootme_pseudo: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f":information_source: Removal cancelled for *{rootme_pseudo}*.",
+            },
+        }
+    ]
 
 
 def _format_ranking_line(entry: RankingEntry) -> str:

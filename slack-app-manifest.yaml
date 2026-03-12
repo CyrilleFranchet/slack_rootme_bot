@@ -9,8 +9,8 @@ features:
     always_online: false
   slash_commands:
     - command: /rootme
-      description: Show help for the Root-Me Slack bot
-      usage_hint: "[help]"
+      description: Manage and query Root-Me tracked members
+      usage_hint: "[help|ranking|profile|add|remove]"
       should_escape: false
 
 oauth_config:
@@ -23,7 +23,7 @@ settings:
   event_subscriptions:
     bot_events: []
   interactivity:
-    is_enabled: false
+    is_enabled: true
   org_deploy_enabled: false
   socket_mode_enabled: true
   token_rotation_enabled: false
