@@ -15,7 +15,8 @@ def initialize_database(database_path: Path) -> None:
                 rootme_id INTEGER PRIMARY KEY,
                 rootme_pseudo TEXT NOT NULL,
                 score INTEGER NOT NULL,
-                global_rank INTEGER,
+                rootme_rank INTEGER,
+                rootme_position INTEGER,
                 challenges_count INTEGER NOT NULL,
                 profile_url TEXT NOT NULL,
                 recent_resolutions_json TEXT NOT NULL DEFAULT '[]',
@@ -69,6 +70,23 @@ def _migrate_cache_scores_table(connection: sqlite3.Connection) -> None:
     existing_columns = {
         str(row[1]) for row in connection.execute("PRAGMA table_info(cache_scores)").fetchall()
     }
+    if "rootme_rank" not in existing_columns and "global_rank" in existing_columns:
+        connection.execute(
+            """
+            ALTER TABLE cache_scores
+            RENAME COLUMN global_rank TO rootme_rank
+            """
+        )
+        existing_columns.remove("global_rank")
+        existing_columns.add("rootme_rank")
+    if "rootme_position" not in existing_columns:
+        connection.execute(
+            """
+            ALTER TABLE cache_scores
+            ADD COLUMN rootme_position INTEGER
+            """
+        )
+        existing_columns.add("rootme_position")
     if "recent_resolutions_json" not in existing_columns:
         connection.execute(
             """

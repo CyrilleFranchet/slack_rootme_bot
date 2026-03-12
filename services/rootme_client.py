@@ -47,7 +47,8 @@ class RootMeProfile:
     id: int
     username: str
     score: int
-    global_rank: int | None
+    rootme_rank: int | None
+    rootme_position: int | None
     challenges_count: int
     profile_url: str
     categories: tuple[CategoryProgress, ...]
@@ -269,7 +270,8 @@ class RootMeClient:
             default=f"https://www.root-me.org/{username}",
         )
         score = self._pick_int(author, "score", default=0) or 0
-        global_rank = self._pick_int(author, "rang", "rank", "position")
+        rootme_rank = self._pick_int(author, "rang", "rank")
+        rootme_position = self._pick_int(author, "position")
         validations_count = self._count_validations(author, validations)
         categories = self._extract_categories(author)
         recent_resolutions = self._extract_recent_resolutions(validations)
@@ -278,7 +280,8 @@ class RootMeClient:
             id=author_id,
             username=username,
             score=score,
-            global_rank=global_rank,
+            rootme_rank=rootme_rank,
+            rootme_position=rootme_position,
             challenges_count=validations_count,
             profile_url=profile_url,
             categories=tuple(categories),

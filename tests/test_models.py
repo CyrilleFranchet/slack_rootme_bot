@@ -77,7 +77,8 @@ def test_list_cached_scores_for_members_returns_only_tracked_members(tmp_path: P
         rootme_id=42,
         rootme_pseudo="alice",
         score=100,
-        global_rank=10,
+        rootme_rank=10,
+        rootme_position=20,
         challenges_count=5,
         profile_url="https://www.root-me.org/alice",
         recent_resolutions=(
@@ -90,7 +91,8 @@ def test_list_cached_scores_for_members_returns_only_tracked_members(tmp_path: P
         rootme_id=99,
         rootme_pseudo="ghost",
         score=1,
-        global_rank=999,
+        rootme_rank=999,
+        rootme_position=1001,
         challenges_count=1,
         profile_url="https://www.root-me.org/ghost",
         recent_resolutions=(),
@@ -101,4 +103,6 @@ def test_list_cached_scores_for_members_returns_only_tracked_members(tmp_path: P
 
     assert len(cached_scores) == 1
     assert cached_scores[0].rootme_id == 42
+    assert cached_scores[0].rootme_rank == 10
+    assert cached_scores[0].rootme_position == 20
     assert cached_scores[0].recent_resolutions[0].title == "XSS 101"

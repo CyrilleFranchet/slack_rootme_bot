@@ -23,7 +23,8 @@ class CachedScore:
     rootme_id: int
     rootme_pseudo: str
     score: int
-    global_rank: int | None
+    rootme_rank: int | None
+    rootme_position: int | None
     challenges_count: int
     profile_url: str
     recent_resolutions: tuple[ChallengeResolution, ...]
@@ -162,7 +163,8 @@ def upsert_cached_score(
     rootme_id: int,
     rootme_pseudo: str,
     score: int,
-    global_rank: int | None,
+    rootme_rank: int | None,
+    rootme_position: int | None,
     challenges_count: int,
     profile_url: str,
     recent_resolutions: tuple[ChallengeResolution, ...],
@@ -184,16 +186,18 @@ def upsert_cached_score(
                 rootme_id,
                 rootme_pseudo,
                 score,
-                global_rank,
+                rootme_rank,
+                rootme_position,
                 challenges_count,
                 profile_url,
                 recent_resolutions_json,
                 fetched_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(rootme_id) DO UPDATE SET
                 rootme_pseudo = excluded.rootme_pseudo,
                 score = excluded.score,
-                global_rank = excluded.global_rank,
+                rootme_rank = excluded.rootme_rank,
+                rootme_position = excluded.rootme_position,
                 challenges_count = excluded.challenges_count,
                 profile_url = excluded.profile_url,
                 recent_resolutions_json = excluded.recent_resolutions_json,
@@ -203,7 +207,8 @@ def upsert_cached_score(
                 rootme_id,
                 rootme_pseudo,
                 score,
-                global_rank,
+                rootme_rank,
+                rootme_position,
                 challenges_count,
                 profile_url,
                 recent_resolutions_json,
@@ -220,7 +225,8 @@ def get_cached_score_by_rootme_id(database_path: Path, rootme_id: int) -> Cached
                 rootme_id,
                 rootme_pseudo,
                 score,
-                global_rank,
+                rootme_rank,
+                rootme_position,
                 challenges_count,
                 profile_url,
                 recent_resolutions_json,
@@ -244,7 +250,8 @@ def list_cached_scores_for_members(database_path: Path) -> list[CachedScore]:
                 cache_scores.rootme_id,
                 cache_scores.rootme_pseudo,
                 cache_scores.score,
-                cache_scores.global_rank,
+                cache_scores.rootme_rank,
+                cache_scores.rootme_position,
                 cache_scores.challenges_count,
                 cache_scores.profile_url,
                 cache_scores.recent_resolutions_json,
@@ -286,9 +293,10 @@ def _row_to_cached_score(row: tuple[object, ...]) -> CachedScore:
         rootme_id=int(row[0]),
         rootme_pseudo=str(row[1]),
         score=int(row[2]),
-        global_rank=int(row[3]) if row[3] is not None else None,
-        challenges_count=int(row[4]),
-        profile_url=str(row[5]),
+        rootme_rank=int(row[3]) if row[3] is not None else None,
+        rootme_position=int(row[4]) if row[4] is not None else None,
+        challenges_count=int(row[5]),
+        profile_url=str(row[6]),
         recent_resolutions=recent_resolutions,
-        fetched_at=datetime.fromisoformat(str(row[7])),
+        fetched_at=datetime.fromisoformat(str(row[8])),
     )

@@ -129,7 +129,8 @@ def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
                 "type": "mrkdwn",
                 "text": (
                     f"*Score*: {profile.score:,} pts\n"
-                    f"*Global rank*: {_format_global_rank(profile.global_rank)}\n"
+                    f"*Root-Me rank*: {_format_rootme_rank(profile.rootme_rank)}\n"
+                    f"*Root-Me position*: {_format_rootme_position(profile.rootme_position)}\n"
                     f"*Challenges solved*: {profile.challenges_count:,}\n"
                     f"*Profile*: {profile.profile_url}"
                 ),
@@ -176,7 +177,8 @@ def build_member_added_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
                     f"*{profile.username}* is now tracked.\n"
                     f"Root-Me ID: `{profile.id}`\n"
                     f"Score: {profile.score:,} pts\n"
-                    f"Global rank: {_format_global_rank(profile.global_rank)}"
+                    f"Root-Me rank: {_format_rootme_rank(profile.rootme_rank)}\n"
+                    f"Root-Me position: {_format_rootme_position(profile.rootme_position)}"
                 ),
             },
         },
@@ -280,7 +282,8 @@ def build_candidate_selection_blocks(
                     "type": "mrkdwn",
                     "text": (
                         f"*{profile.username}*  |  ID `{profile.id}`\n"
-                        f"{_format_global_rank(profile.global_rank)}  |  "
+                        f"rank {_format_rootme_rank(profile.rootme_rank)}  |  "
+                        f"position {_format_rootme_position(profile.rootme_position)}  |  "
                         f"{profile.challenges_count:,} challenges  |  {profile.score:,} pts"
                     ),
                 },
@@ -379,14 +382,21 @@ def _format_ranking_line(entry: RankingEntry) -> str:
         f"{medal} *{entry.position}. {profile.username}*"
         f" - {profile.score:,} pts"
         f" ({profile.challenges_count:,} challenges)"
-        f" - {_format_global_rank(profile.global_rank)}"
+        f" - rank {_format_rootme_rank(profile.rootme_rank)}"
+        f" - position {_format_rootme_position(profile.rootme_position)}"
     )
 
 
-def _format_global_rank(rank: int | None) -> str:
+def _format_rootme_rank(rank: int | None) -> str:
     if rank is None:
         return "Unknown"
-    return f"#{rank:,} worldwide"
+    return f"#{rank:,}"
+
+
+def _format_rootme_position(position: int | None) -> str:
+    if position is None:
+        return "Unknown"
+    return f"#{position:,}"
 
 
 def _format_categories(categories: tuple[CategoryProgress, ...]) -> list[str]:

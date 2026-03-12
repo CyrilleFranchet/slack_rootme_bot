@@ -31,7 +31,8 @@ def test_build_ranking_blocks_contains_profile_data() -> None:
         id=42,
         username="alice",
         score=2450,
-        global_rank=1203,
+        rootme_rank=1203,
+        rootme_position=4521,
         challenges_count=385,
         profile_url="https://www.root-me.org/alice",
         categories=(),
@@ -45,7 +46,8 @@ def test_build_ranking_blocks_contains_profile_data() -> None:
     )
 
     assert "alice" in blocks[1]["text"]["text"]
-    assert "#1,203 worldwide" in blocks[1]["text"]["text"]
+    assert "rank #1,203" in blocks[1]["text"]["text"]
+    assert "position #4,521" in blocks[1]["text"]["text"]
 
 
 def test_build_profile_blocks_contains_category_section() -> None:
@@ -53,7 +55,8 @@ def test_build_profile_blocks_contains_category_section() -> None:
         id=7,
         username="bob",
         score=500,
-        global_rank=999,
+        rootme_rank=999,
+        rootme_position=1500,
         challenges_count=10,
         profile_url="https://www.root-me.org/bob",
         categories=(),
@@ -69,7 +72,8 @@ def test_build_profile_blocks_contains_category_section() -> None:
     blocks = build_profile_blocks(profile)
 
     assert "bob" in blocks[0]["text"]["text"]
-    assert "https://www.root-me.org/bob" in blocks[1]["text"]["text"]
+    assert "Root-Me rank" in blocks[1]["text"]["text"]
+    assert "Root-Me position" in blocks[1]["text"]["text"]
     assert "2026-03-10" in blocks[2]["text"]["text"]
 
 
@@ -78,7 +82,8 @@ def test_build_member_added_blocks_contains_username() -> None:
         id=8,
         username="carol",
         score=800,
-        global_rank=111,
+        rootme_rank=111,
+        rootme_position=222,
         challenges_count=20,
         profile_url="https://www.root-me.org/carol",
         categories=(),
@@ -96,7 +101,8 @@ def test_build_add_confirmation_blocks_contains_actions() -> None:
         id=8,
         username="carol",
         score=800,
-        global_rank=111,
+        rootme_rank=111,
+        rootme_position=222,
         challenges_count=20,
         profile_url="https://www.root-me.org/carol",
         categories=(),
@@ -137,7 +143,8 @@ def test_build_candidate_selection_blocks_contains_rootme_id() -> None:
         id=42,
         username="alice",
         score=2450,
-        global_rank=1203,
+        rootme_rank=1203,
+        rootme_position=4521,
         challenges_count=385,
         profile_url="https://www.root-me.org/alice",
         categories=(),
