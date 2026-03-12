@@ -71,7 +71,7 @@ def refresh_ranking_cache(settings: Settings) -> None:
     slack_client = _build_slack_client(settings)
     for profile in profiles:
         previous_snapshot = get_cached_score_by_rootme_id(settings.database_path, profile.id)
-        _store_profile_snapshot(settings, profile)
+        cache_profile_snapshot(settings, profile)
         _announce_new_resolutions(
             settings,
             slack_client=slack_client,
@@ -82,7 +82,7 @@ def refresh_ranking_cache(settings: Settings) -> None:
     logger.info("Ranking cache refreshed for %s tracked members", len(profiles))
 
 
-def _store_profile_snapshot(settings: Settings, profile: RootMeProfile) -> None:
+def cache_profile_snapshot(settings: Settings, profile: RootMeProfile) -> None:
     upsert_cached_score(
         settings.database_path,
         rootme_id=profile.id,

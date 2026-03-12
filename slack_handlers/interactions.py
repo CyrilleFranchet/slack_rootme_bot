@@ -20,6 +20,7 @@ from services.rootme_client import (
     RootMeClient,
     RootMeRateLimitError,
 )
+from services.ranking_refresh import cache_profile_snapshot
 from utils.formatter import (
     build_add_cancelled_blocks,
     build_error_blocks,
@@ -97,6 +98,7 @@ def register_interactions(app: App, settings: Settings) -> None:
             )
             return
 
+        cache_profile_snapshot(settings, profile)
         respond(
             blocks=build_member_added_blocks(profile),
             replace_original=True,
