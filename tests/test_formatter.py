@@ -5,6 +5,7 @@ from services.rootme_client import ChallengeResolution, RootMeProfile
 from utils.formatter import (
     build_add_confirmation_blocks,
     build_candidate_selection_blocks,
+    build_detailed_ranking_blocks,
     build_help_blocks,
     build_member_added_blocks,
     build_member_list_blocks,
@@ -48,6 +49,31 @@ def test_build_ranking_blocks_contains_profile_data() -> None:
     assert "alice" in blocks[1]["text"]["text"]
     assert "rank #1,203" in blocks[1]["text"]["text"]
     assert "position #4,521" in blocks[1]["text"]["text"]
+
+
+def test_build_detailed_ranking_blocks_contains_recent_challenges() -> None:
+    profile = RootMeProfile(
+        id=42,
+        username="alice",
+        score=2450,
+        rootme_rank="1203",
+        rootme_position=4521,
+        challenges_count=385,
+        profile_url="https://www.root-me.org/alice",
+        categories=(),
+        recent_resolutions=(
+            ChallengeResolution(title="JWT - Revoked token", validated_at="2026-03-11 21:05:03"),
+        ),
+        fetched_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
+    )
+
+    blocks = build_detailed_ranking_blocks(
+        [RankingEntry(position=1, profile=profile)],
+        updated_at=profile.fetched_at,
+    )
+
+    assert "alice" in blocks[1]["text"]["text"]
+    assert "JWT - Revoked token" in blocks[2]["text"]["text"]
 
 
 def test_build_profile_blocks_contains_category_section() -> None:

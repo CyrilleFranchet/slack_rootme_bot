@@ -27,6 +27,7 @@ from services.rootme_client import (
 from utils.formatter import (
     build_add_confirmation_blocks,
     build_candidate_selection_blocks,
+    build_detailed_ranking_blocks,
     build_empty_ranking_blocks,
     build_error_blocks,
     build_help_blocks,
@@ -43,6 +44,7 @@ SUPPORTED_SUBCOMMANDS = {
     "aide",
     "ranking",
     "classement",
+    "details",
     "profile",
     "profil",
     "add",
@@ -71,6 +73,16 @@ def register_commands(app: App, settings: Settings) -> None:
             _handle_ranking_command(
                 respond,
                 settings=settings,
+                detailed=False,
+            )
+            return
+
+        if subcommand == "details":
+            ack(text="Fetching the detailed Root-Me ranking...")
+            _handle_ranking_command(
+                respond,
+                settings=settings,
+                detailed=True,
             )
             return
 
@@ -133,6 +145,7 @@ def _handle_ranking_command(
     respond: Any,
     *,
     settings: Settings,
+    detailed: bool,
 ) -> None:
     members = list_members(settings.database_path)
     if not members:
@@ -171,8 +184,13 @@ def _handle_ranking_command(
         (entry.profile.fetched_at for entry in ranking_entries),
         default=datetime.now(UTC),
     )
+    blocks = (
+        build_detailed_ranking_blocks(ranking_entries, updated_at=updated_at)
+        if detailed
+        else build_ranking_blocks(ranking_entries, updated_at=updated_at)
+    )
     respond(
-        blocks=build_ranking_blocks(ranking_entries, updated_at=updated_at),
+        blocks=blocks,
         response_type="in_channel",
     )
 

@@ -34,6 +34,8 @@ def build_help_blocks(
                     "Show the list of supported commands and usage examples.\n\n"
                     "*`/rootme ranking`*\n"
                     "Show the tracked-member leaderboard.\n\n"
+                    "*`/rootme details`*\n"
+                    "Show the leaderboard with each member's five latest solved challenges.\n\n"
                     "*`/rootme profile <username>`*\n"
                     "Show details for a specific Root-Me profile.\n\n"
                     "*`/rootme add <rootme_id>`*\n"
@@ -113,6 +115,65 @@ def build_ranking_blocks(entries: list[RankingEntry], *, updated_at: datetime) -
             ],
         },
     ]
+
+
+def build_detailed_ranking_blocks(
+    entries: list[RankingEntry],
+    *,
+    updated_at: datetime,
+) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": ":trophy: Root-Me Group Details"},
+        }
+    ]
+
+    for entry in entries:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": _format_ranking_line(entry)},
+            }
+        )
+        recent_resolution_lines = _format_recent_resolutions(entry.profile)
+        if recent_resolution_lines:
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Latest challenge solves*\n" + "\n".join(recent_resolution_lines),
+                    },
+                }
+            )
+        else:
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*Latest challenge solves*\nNo cached challenge solves yet.",
+                    },
+                }
+            )
+        blocks.append({"type": "divider"})
+
+    if blocks[-1]["type"] == "divider":
+        blocks.pop()
+
+    blocks.append(
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"Updated at {updated_at.astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}",
+                }
+            ],
+        }
+    )
+    return blocks
 
 
 def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:

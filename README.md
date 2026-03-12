@@ -83,6 +83,7 @@ When the bot is connected, run `/rootme help` in Slack to verify the integration
 
 - `/rootme help` shows the supported commands.
 - `/rootme ranking` reads cached ranking snapshots from SQLite and posts the leaderboard in-channel.
+- `/rootme details` reads cached ranking snapshots from SQLite and posts the leaderboard with each member's latest five solved challenges.
 - `/rootme profile <username>` returns a cached snapshot for tracked members when available, including the latest five recorded challenge solves with dates.
 - `/rootme add <rootme_id>` fetches a Root-Me profile by numeric ID, shows the details, then requires confirmation before storing it in SQLite.
 - `/rootme list` shows the tracked Root-Me members and who added them.
