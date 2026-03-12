@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from services.ranking import RankingEntry
 from services.rootme_client import RootMeProfile
 from utils.formatter import (
+    build_candidate_selection_blocks,
     build_help_blocks,
     build_member_added_blocks,
     build_profile_blocks,
@@ -80,7 +81,29 @@ def test_build_member_added_blocks_contains_username() -> None:
 
 
 def test_build_remove_confirmation_blocks_contains_buttons() -> None:
-    blocks = build_remove_confirmation_blocks("dave")
+    blocks = build_remove_confirmation_blocks(12, "dave", 34)
 
     assert blocks[2]["type"] == "actions"
     assert len(blocks[2]["elements"]) == 2
+
+
+def test_build_candidate_selection_blocks_contains_rootme_id() -> None:
+    profile = RootMeProfile(
+        id=42,
+        username="alice",
+        score=2450,
+        global_rank=1203,
+        challenges_count=385,
+        profile_url="https://www.root-me.org/alice",
+        categories=(),
+        fetched_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
+    )
+
+    blocks = build_candidate_selection_blocks(
+        title="Select profile",
+        body="Choose one.",
+        profiles=[profile],
+        action_id="select_profile_candidate",
+    )
+
+    assert "ID `42`" in blocks[2]["text"]["text"]

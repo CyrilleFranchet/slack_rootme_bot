@@ -10,17 +10,19 @@ from config import Settings
 from db.models import (
     MemberAlreadyExistsError,
     add_member,
-    get_member_by_pseudo,
+    get_member_by_rootme_id,
     list_members,
+    list_members_by_pseudo,
 )
 from services.ranking import build_ranking
 from services.rootme_client import (
     RootMeApiError,
     RootMeAuthenticationError,
     RootMeClient,
-    RootMeUserNotFoundError,
+    RootMeProfile,
 )
 from utils.formatter import (
+    build_candidate_selection_blocks,
     build_empty_ranking_blocks,
     build_error_blocks,
     build_help_blocks,
@@ -68,33 +70,31 @@ def register_commands(app: App, settings: Settings) -> None:
 
         if subcommand in {"profile", "profil"}:
             ack(text="Fetching the Root-Me profile...")
-            username = " ".join(parts[1:]).strip()
             _handle_profile_command(
                 respond,
                 rootme_client=_build_rootme_client(settings),
-                username=username,
+                username=" ".join(parts[1:]).strip(),
             )
             return
 
         if subcommand in {"add", "ajouter"}:
             ack(text="Validating the Root-Me profile...")
-            username = " ".join(parts[1:]).strip()
             _handle_add_command(
                 respond,
                 settings=settings,
                 rootme_client=_build_rootme_client(settings),
-                username=username,
+                username=" ".join(parts[1:]).strip(),
                 added_by=command.get("user_id"),
             )
             return
 
         if subcommand in {"remove", "supprimer"}:
             ack()
-            username = " ".join(parts[1:]).strip()
             _handle_remove_command(
                 respond,
                 settings=settings,
-                username=username,
+                username=" ".join(parts[1:]).strip(),
+                rootme_client=_build_rootme_client(settings),
             )
             return
 
@@ -126,10 +126,9 @@ def _handle_ranking_command(
         respond(blocks=build_empty_ranking_blocks(), response_type="ephemeral")
         return
 
+    rootme_ids = [member.rootme_id for member in members if member.rootme_id is not None]
     try:
-        profiles = asyncio.run(
-            rootme_client.get_profiles([member.rootme_pseudo for member in members])
-        )
+        profiles = asyncio.run(rootme_client.get_profiles_by_ids(rootme_ids))
     except RootMeAuthenticationError:
         respond(
             blocks=build_error_blocks(
@@ -176,37 +175,23 @@ def _handle_profile_command(
         )
         return
 
-    try:
-        profile = asyncio.run(rootme_client.get_profile(username))
-    except RootMeUserNotFoundError:
-        respond(
-            blocks=build_error_blocks(
-                title="Profile not found",
-                body=f"The Root-Me username `{username}` was not found. Check the spelling and try again.",
-            ),
-            response_type="ephemeral",
-        )
+    profiles = _search_profiles_or_respond(respond, rootme_client=rootme_client, username=username)
+    if profiles is None:
         return
-    except RootMeAuthenticationError:
+
+    if len(profiles) > 1:
         respond(
-            blocks=build_error_blocks(
-                title="Root-Me authentication failed",
-                body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
-            ),
-            response_type="ephemeral",
-        )
-        return
-    except RootMeApiError:
-        respond(
-            blocks=build_error_blocks(
-                title="Root-Me API unavailable",
-                body="The Root-Me API is temporarily unavailable. Please try again in a few minutes.",
+            blocks=build_candidate_selection_blocks(
+                title=":mag: Multiple Root-Me profiles found",
+                body="More than one Root-Me account matches that username. Choose the correct account.",
+                profiles=profiles,
+                action_id="select_profile_candidate",
             ),
             response_type="ephemeral",
         )
         return
 
-    respond(blocks=build_profile_blocks(profile), response_type="ephemeral")
+    respond(blocks=build_profile_blocks(profiles[0]), response_type="ephemeral")
 
 
 def _handle_add_command(
@@ -227,27 +212,82 @@ def _handle_add_command(
         )
         return
 
-    if get_member_by_pseudo(settings.database_path, username) is not None:
+    profiles = _search_profiles_or_respond(respond, rootme_client=rootme_client, username=username)
+    if profiles is None:
+        return
+
+    available_profiles = [
+        profile for profile in profiles if get_member_by_rootme_id(settings.database_path, profile.id) is None
+    ]
+    if not available_profiles:
         respond(
             blocks=build_error_blocks(
-                title="Member already tracked",
-                body=f"The Root-Me username `{username}` is already in the tracked member list.",
+                title="Members already tracked",
+                body=f"All Root-Me accounts matching `{username}` are already in the tracked member list.",
             ),
             response_type="ephemeral",
         )
         return
 
-    try:
-        profile = asyncio.run(rootme_client.get_profile(username))
-    except RootMeUserNotFoundError:
+    if len(available_profiles) > 1:
         respond(
-            blocks=build_error_blocks(
-                title="Profile not found",
-                body=f"The Root-Me username `{username}` was not found. Check the spelling and try again.",
+            blocks=build_candidate_selection_blocks(
+                title=":mag: Multiple Root-Me profiles found",
+                body="More than one Root-Me account matches that username. Choose which account to add.",
+                profiles=available_profiles,
+                action_id="select_add_member",
             ),
             response_type="ephemeral",
         )
         return
+
+    _persist_selected_profile(
+        respond,
+        settings=settings,
+        profile=available_profiles[0],
+        added_by=added_by,
+    )
+
+
+def _handle_remove_command(
+    respond: Any,
+    *,
+    settings: Settings,
+    username: str,
+    rootme_client: RootMeClient,
+) -> None:
+    if not username:
+        respond(
+            blocks=build_error_blocks(
+                title="Missing username",
+                body="Usage: `/rootme remove <username>`",
+            ),
+            response_type="ephemeral",
+        )
+        return
+
+    members = list_members_by_pseudo(settings.database_path, username)
+    if not members:
+        respond(
+            blocks=build_error_blocks(
+                title="Member not tracked",
+                body=f"The Root-Me username `{username}` is not in the tracked member list.",
+            ),
+            response_type="ephemeral",
+        )
+        return
+
+    if len(members) == 1:
+        member = members[0]
+        respond(
+            blocks=build_remove_confirmation_blocks(member.id, member.rootme_pseudo, member.rootme_id),
+            response_type="ephemeral",
+        )
+        return
+
+    rootme_ids = [member.rootme_id for member in members if member.rootme_id is not None]
+    try:
+        profiles = asyncio.run(rootme_client.get_profiles_by_ids(rootme_ids))
     except RootMeAuthenticationError:
         respond(
             blocks=build_error_blocks(
@@ -267,6 +307,63 @@ def _handle_add_command(
         )
         return
 
+    respond(
+        blocks=build_candidate_selection_blocks(
+            title=":mag: Multiple tracked members found",
+            body="More than one tracked member has that username. Choose which account to remove.",
+            profiles=profiles,
+            action_id="select_remove_member",
+        ),
+        response_type="ephemeral",
+    )
+
+
+def _search_profiles_or_respond(
+    respond: Any,
+    *,
+    rootme_client: RootMeClient,
+    username: str,
+) -> list[RootMeProfile] | None:
+    try:
+        profiles = asyncio.run(rootme_client.search_profiles(username))
+    except RootMeAuthenticationError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me authentication failed",
+                body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
+            ),
+            response_type="ephemeral",
+        )
+        return None
+    except RootMeApiError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me API unavailable",
+                body="The Root-Me API is temporarily unavailable. Please try again in a few minutes.",
+            ),
+            response_type="ephemeral",
+        )
+        return None
+
+    if not profiles:
+        respond(
+            blocks=build_error_blocks(
+                title="Profile not found",
+                body=f"The Root-Me username `{username}` was not found. Check the spelling and try again.",
+            ),
+            response_type="ephemeral",
+        )
+        return None
+    return profiles
+
+
+def _persist_selected_profile(
+    respond: Any,
+    *,
+    settings: Settings,
+    profile: RootMeProfile,
+    added_by: str | None,
+) -> None:
     try:
         add_member(
             settings.database_path,
@@ -278,46 +375,13 @@ def _handle_add_command(
         respond(
             blocks=build_error_blocks(
                 title="Member already tracked",
-                body=f"The Root-Me username `{profile.username}` is already in the tracked member list.",
+                body=f"The Root-Me account `{profile.username}` with ID `{profile.id}` is already in the tracked member list.",
             ),
             response_type="ephemeral",
         )
         return
 
     respond(blocks=build_member_added_blocks(profile), response_type="in_channel")
-
-
-def _handle_remove_command(
-    respond: Any,
-    *,
-    settings: Settings,
-    username: str,
-) -> None:
-    if not username:
-        respond(
-            blocks=build_error_blocks(
-                title="Missing username",
-                body="Usage: `/rootme remove <username>`",
-            ),
-            response_type="ephemeral",
-        )
-        return
-
-    member = get_member_by_pseudo(settings.database_path, username)
-    if member is None:
-        respond(
-            blocks=build_error_blocks(
-                title="Member not tracked",
-                body=f"The Root-Me username `{username}` is not in the tracked member list.",
-            ),
-            response_type="ephemeral",
-        )
-        return
-
-    respond(
-        blocks=build_remove_confirmation_blocks(member.rootme_pseudo),
-        response_type="ephemeral",
-    )
 
 
 def _build_rootme_client(settings: Settings) -> RootMeClient:

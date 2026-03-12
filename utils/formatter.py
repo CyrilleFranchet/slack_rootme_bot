@@ -160,6 +160,7 @@ def build_member_added_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
                 "type": "mrkdwn",
                 "text": (
                     f"*{profile.username}* is now tracked.\n"
+                    f"Root-Me ID: `{profile.id}`\n"
                     f"Score: {profile.score:,} pts\n"
                     f"Global rank: {_format_global_rank(profile.global_rank)}"
                 ),
@@ -168,8 +169,52 @@ def build_member_added_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
     ]
 
 
-def build_remove_confirmation_blocks(rootme_pseudo: str) -> list[dict[str, Any]]:
-    payload = json.dumps({"rootme_pseudo": rootme_pseudo})
+def build_candidate_selection_blocks(
+    *,
+    title: str,
+    body: str,
+    profiles: list[RootMeProfile],
+    action_id: str,
+) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": title},
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": body},
+        },
+    ]
+
+    for profile in profiles:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        f"*{profile.username}*  |  ID `{profile.id}`\n"
+                        f"{_format_global_rank(profile.global_rank)}  |  "
+                        f"{profile.challenges_count:,} challenges  |  {profile.score:,} pts"
+                    ),
+                },
+                "accessory": {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Choose"},
+                    "action_id": action_id,
+                    "value": json.dumps({"rootme_id": profile.id}),
+                },
+            }
+        )
+
+    return blocks
+
+
+def build_remove_confirmation_blocks(member_id: int, rootme_pseudo: str, rootme_id: int | None) -> list[dict[str, Any]]:
+    payload = json.dumps(
+        {"member_id": member_id, "rootme_pseudo": rootme_pseudo, "rootme_id": rootme_id}
+    )
     return [
         {
             "type": "header",
@@ -179,7 +224,11 @@ def build_remove_confirmation_blocks(rootme_pseudo: str) -> list[dict[str, Any]]
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"Remove *{rootme_pseudo}* from the tracked Root-Me members?",
+                "text": (
+                    f"Remove *{rootme_pseudo}*"
+                    + (f" (Root-Me ID `{rootme_id}`)" if rootme_id is not None else "")
+                    + " from the tracked Root-Me members?"
+                ),
             },
         },
         {
@@ -203,25 +252,33 @@ def build_remove_confirmation_blocks(rootme_pseudo: str) -> list[dict[str, Any]]
     ]
 
 
-def build_member_removed_blocks(rootme_pseudo: str) -> list[dict[str, Any]]:
+def build_member_removed_blocks(rootme_pseudo: str, rootme_id: int | None) -> list[dict[str, Any]]:
     return [
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f":wastebasket: *{rootme_pseudo}* is no longer tracked.",
+                "text": (
+                    f":wastebasket: *{rootme_pseudo}*"
+                    + (f" (Root-Me ID `{rootme_id}`)" if rootme_id is not None else "")
+                    + " is no longer tracked."
+                ),
             },
         }
     ]
 
 
-def build_remove_cancelled_blocks(rootme_pseudo: str) -> list[dict[str, Any]]:
+def build_remove_cancelled_blocks(rootme_pseudo: str, rootme_id: int | None) -> list[dict[str, Any]]:
     return [
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f":information_source: Removal cancelled for *{rootme_pseudo}*.",
+                "text": (
+                    f":information_source: Removal cancelled for *{rootme_pseudo}*"
+                    + (f" (Root-Me ID `{rootme_id}`)" if rootme_id is not None else "")
+                    + "."
+                ),
             },
         }
     ]

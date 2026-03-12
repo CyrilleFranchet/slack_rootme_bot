@@ -63,3 +63,41 @@ def test_extract_search_candidates_handles_nested_search_payload() -> None:
     assert len(candidates) == 1
     assert client._pick_candidate_id(candidates[0]) == 42
     assert client._candidate_matches_username(candidates[0], "alice")
+def test_extract_search_candidates_preserves_duplicate_usernames() -> None:
+    client = RootMeClient(
+        api_key="test",
+        base_url="https://api.www.root-me.org",
+        request_delay_ms=0,
+        timeout_seconds=10,
+    )
+
+    candidates = client._extract_search_candidates(
+        {
+            "items": [
+                {"nom": "alice", "id": 1},
+                {"nom": "alice", "id": 2},
+            ]
+        }
+    )
+
+    assert len(candidates) == 2
+    assert [client._pick_candidate_id(candidate) for candidate in candidates] == [1, 2]
+
+
+def test_extract_next_href_from_paginated_search_payload() -> None:
+    client = RootMeClient(
+        api_key="test",
+        base_url="https://api.www.root-me.org",
+        request_delay_ms=0,
+        timeout_seconds=10,
+    )
+
+    payload = [
+        {
+            "0": {"id_auteur": "2882", "nom": "phil"},
+            "1": {"id_auteur": "3788", "nom": "Phil"},
+        },
+        {"rel": "next", "href": "https://api.www.root-me.org/auteurs?nom=Phil&debut_auteurs=50"},
+    ]
+
+    assert client._extract_next_href(payload) == "https://api.www.root-me.org/auteurs?nom=Phil&debut_auteurs=50"

@@ -61,23 +61,35 @@ class RootMeClient:
         self._next_request_time = 0.0
 
     async def get_profile(self, username: str) -> RootMeProfile:
-        author_id, resolved_username = await self._search_author(username)
+        matches = await self.search_profiles(username)
+        if not matches:
+            raise RootMeUserNotFoundError(
+                f"The Root-Me username `{username}` could not be found."
+            )
+        if len(matches) > 1:
+            raise RootMeApiError(
+                f"The Root-Me username `{username}` matched multiple accounts."
+            )
+        return matches[0]
+
+    async def get_profile_by_id(self, author_id: int) -> RootMeProfile:
         author_payload = await self._request_json(f"/auteurs/{author_id}")
         validations_payload = await self._request_json(f"/auteurs/{author_id}/validations")
+        author = self._unwrap_object(author_payload)
+        fallback_username = self._pick_str(author, "nom", "name", default=str(author_id)) or str(author_id)
         return self._build_profile(
             author_payload,
             validations_payload=validations_payload,
-            fallback_username=resolved_username,
+            fallback_username=fallback_username,
         )
 
-    async def get_profiles(self, usernames: list[str]) -> list[RootMeProfile]:
-        profiles = await asyncio.gather(*(self.get_profile(username) for username in usernames))
+    async def get_profiles_by_ids(self, author_ids: list[int]) -> list[RootMeProfile]:
+        profiles = await asyncio.gather(*(self.get_profile_by_id(author_id) for author_id in author_ids))
         return list(profiles)
 
-    async def _search_author(self, username: str) -> tuple[int, str]:
-        payload = await self._request_json("/auteurs", params={"nom": username})
-        candidates = self._extract_search_candidates(payload)
-
+    async def search_profiles(self, username: str) -> list[RootMeProfile]:
+        candidates = await self._search_candidates_across_pages(username)
+        candidate_ids: list[int] = []
         for candidate in candidates:
             candidate_name = self._pick_str(
                 candidate,
@@ -91,35 +103,62 @@ class RootMeClient:
             candidate_id = self._pick_candidate_id(candidate)
             if candidate_id is None or candidate_name is None:
                 continue
-            if candidate_name.lower() == username.lower():
-                return candidate_id, candidate_name
+            if candidate_name == username and candidate_id not in candidate_ids:
+                candidate_ids.append(candidate_id)
 
-        if candidates:
-            exactish_match = next(
-                (
-                    candidate
-                    for candidate in candidates
-                    if self._candidate_matches_username(candidate, username)
-                ),
-                candidates[0],
-            )
-            candidate_id = self._pick_candidate_id(exactish_match)
-            candidate_name = self._pick_str(
-                exactish_match,
-                "nom",
-                "name",
-                "titre",
-                "title",
-                "pseudo",
-                "login",
-                default=username,
-            )
-            if candidate_id is not None:
-                return candidate_id, candidate_name
+        if not candidate_ids:
+            lowered_query = username.lower()
+            for candidate in candidates:
+                candidate_name = self._pick_str(
+                    candidate,
+                    "nom",
+                    "name",
+                    "titre",
+                    "title",
+                    "pseudo",
+                    "login",
+                )
+                candidate_id = self._pick_candidate_id(candidate)
+                if candidate_id is None or candidate_name is None:
+                    continue
+                if candidate_name.lower() == lowered_query and candidate_id not in candidate_ids:
+                    candidate_ids.append(candidate_id)
 
-        raise RootMeUserNotFoundError(
-            f"The Root-Me username `{username}` could not be found."
-        )
+        if not candidate_ids:
+            return []
+
+        profiles = await self.get_profiles_by_ids(candidate_ids)
+        exact_profiles = [profile for profile in profiles if profile.username == username]
+        if exact_profiles:
+            return exact_profiles
+
+        lowered_query = username.lower()
+        return [profile for profile in profiles if profile.username.lower() == lowered_query]
+
+    async def _search_candidates_across_pages(self, username: str) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
+        seen_ids: set[int] = set()
+        next_path: str | None = "/auteurs"
+        next_params: dict[str, Any] | None = {"nom": username}
+
+        while next_path is not None:
+            payload = await self._request_json(next_path, params=next_params)
+            for candidate in self._extract_search_candidates(payload):
+                candidate_id = self._pick_candidate_id(candidate)
+                if candidate_id is None or candidate_id in seen_ids:
+                    continue
+                seen_ids.add(candidate_id)
+                candidates.append(candidate)
+
+            next_href = self._extract_next_href(payload)
+            if next_href:
+                next_path = next_href
+                next_params = None
+            else:
+                next_path = None
+                next_params = None
+
+        return candidates
 
     async def _request_json(
         self,
@@ -312,22 +351,21 @@ class RootMeClient:
 
         return candidates
 
-    def _candidate_matches_username(self, candidate: dict[str, Any], username: str) -> bool:
-        candidate_name = self._pick_str(
-            candidate,
-            "nom",
-            "name",
-            "titre",
-            "title",
-            "pseudo",
-            "login",
-        )
-        if candidate_name is None:
-            return False
+    def _extract_next_href(self, payload: Any) -> str | None:
+        link_objects = self._extract_link_objects(payload)
+        for link in link_objects:
+            rel = self._pick_str(link, "rel")
+            href = self._pick_str(link, "href", "url")
+            if rel == "next" and href is not None:
+                return href
+        return None
 
-        candidate_name = candidate_name.lower()
-        username = username.lower()
-        return candidate_name == username or username in candidate_name
+    def _extract_link_objects(self, payload: Any) -> list[dict[str, Any]]:
+        links: list[dict[str, Any]] = []
+        for item in self._walk_dicts(payload):
+            if self._pick_str(item, "rel") and self._pick_str(item, "href", "url"):
+                links.append(item)
+        return links
 
     def _pick_candidate_id(self, payload: dict[str, Any]) -> int | None:
         candidate_id = self._pick_int(payload, "id", "id_auteur", "auteur", "author_id", "user_id")
