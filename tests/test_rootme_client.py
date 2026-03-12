@@ -36,6 +36,7 @@ def test_build_profile_parses_author_and_validations_payloads() -> None:
     assert profile.global_rank == 1203
     assert profile.challenges_count == 3
     assert profile.categories[0].name == "Cracking"
+    assert len(profile.recent_resolutions) == 3
 
 
 def test_extract_search_candidates_handles_nested_search_payload() -> None:

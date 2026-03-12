@@ -10,6 +10,7 @@ from config import Settings
 from db.models import (
     MemberAlreadyExistsError,
     add_member,
+    get_cached_score_by_rootme_id,
     get_member_by_rootme_id,
     list_cached_scores_for_members,
     list_members,
@@ -77,6 +78,7 @@ def register_commands(app: App, settings: Settings) -> None:
             ack(text="Fetching the Root-Me profile...")
             _handle_profile_command(
                 respond,
+                settings=settings,
                 rootme_client=_build_rootme_client(settings),
                 username=" ".join(parts[1:]).strip(),
             )
@@ -157,6 +159,7 @@ def _handle_ranking_command(
             challenges_count=cached.challenges_count,
             profile_url=cached.profile_url,
             categories=(),
+            recent_resolutions=cached.recent_resolutions,
             fetched_at=cached.fetched_at,
         )
         for cached in cached_scores
@@ -176,6 +179,7 @@ def _handle_ranking_command(
 def _handle_profile_command(
     respond: Any,
     *,
+    settings: Settings,
     rootme_client: RootMeClient,
     username: str,
 ) -> None:
@@ -187,6 +191,11 @@ def _handle_profile_command(
             ),
             response_type="ephemeral",
         )
+        return
+
+    cached_profile = _get_cached_profile_for_tracked_member(settings, username)
+    if cached_profile is not None:
+        respond(blocks=build_profile_blocks(cached_profile), response_type="ephemeral")
         return
 
     profiles = _search_profiles_or_respond(respond, rootme_client=rootme_client, username=username)
@@ -206,6 +215,32 @@ def _handle_profile_command(
         return
 
     respond(blocks=build_profile_blocks(profiles[0]), response_type="ephemeral")
+
+
+def _get_cached_profile_for_tracked_member(settings: Settings, username: str) -> RootMeProfile | None:
+    tracked_members = list_members_by_pseudo(settings.database_path, username)
+    if len(tracked_members) != 1:
+        return None
+
+    member = tracked_members[0]
+    if member.rootme_id is None:
+        return None
+
+    cached = get_cached_score_by_rootme_id(settings.database_path, member.rootme_id)
+    if cached is None:
+        return None
+
+    return RootMeProfile(
+        id=cached.rootme_id,
+        username=cached.rootme_pseudo,
+        score=cached.score,
+        global_rank=cached.global_rank,
+        challenges_count=cached.challenges_count,
+        profile_url=cached.profile_url,
+        categories=(),
+        recent_resolutions=cached.recent_resolutions,
+        fetched_at=cached.fetched_at,
+    )
 
 
 def _handle_add_command(

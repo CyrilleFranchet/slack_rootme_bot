@@ -12,6 +12,7 @@ from db.models import (
     list_members,
     upsert_cached_score,
 )
+from services.rootme_client import ChallengeResolution
 
 
 def test_add_and_delete_member_round_trip(tmp_path: Path) -> None:
@@ -79,6 +80,9 @@ def test_list_cached_scores_for_members_returns_only_tracked_members(tmp_path: P
         global_rank=10,
         challenges_count=5,
         profile_url="https://www.root-me.org/alice",
+        recent_resolutions=(
+            ChallengeResolution(title="XSS 101", validated_at="2026-03-10"),
+        ),
         fetched_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
     )
     upsert_cached_score(
@@ -89,6 +93,7 @@ def test_list_cached_scores_for_members_returns_only_tracked_members(tmp_path: P
         global_rank=999,
         challenges_count=1,
         profile_url="https://www.root-me.org/ghost",
+        recent_resolutions=(),
         fetched_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
     )
 
@@ -96,3 +101,4 @@ def test_list_cached_scores_for_members_returns_only_tracked_members(tmp_path: P
 
     assert len(cached_scores) == 1
     assert cached_scores[0].rootme_id == 42
+    assert cached_scores[0].recent_resolutions[0].title == "XSS 101"

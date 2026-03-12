@@ -18,10 +18,12 @@ def initialize_database(database_path: Path) -> None:
                 global_rank INTEGER,
                 challenges_count INTEGER NOT NULL,
                 profile_url TEXT NOT NULL,
+                recent_resolutions_json TEXT NOT NULL DEFAULT '[]',
                 fetched_at TEXT NOT NULL
             )
             """
         )
+        _migrate_cache_scores_table(connection)
 
 
 def _migrate_members_table(connection: sqlite3.Connection) -> None:
@@ -61,3 +63,16 @@ def _migrate_members_table(connection: sqlite3.Connection) -> None:
         """
     )
     connection.execute("DROP TABLE members_legacy")
+
+
+def _migrate_cache_scores_table(connection: sqlite3.Connection) -> None:
+    existing_columns = {
+        str(row[1]) for row in connection.execute("PRAGMA table_info(cache_scores)").fetchall()
+    }
+    if "recent_resolutions_json" not in existing_columns:
+        connection.execute(
+            """
+            ALTER TABLE cache_scores
+            ADD COLUMN recent_resolutions_json TEXT NOT NULL DEFAULT '[]'
+            """
+        )

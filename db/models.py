@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import json
 from pathlib import Path
 import sqlite3
+
+from services.rootme_client import ChallengeResolution
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,7 @@ class CachedScore:
     global_rank: int | None
     challenges_count: int
     profile_url: str
+    recent_resolutions: tuple[ChallengeResolution, ...]
     fetched_at: datetime
 
 
@@ -161,8 +165,18 @@ def upsert_cached_score(
     global_rank: int | None,
     challenges_count: int,
     profile_url: str,
+    recent_resolutions: tuple[ChallengeResolution, ...],
     fetched_at: datetime,
 ) -> None:
+    recent_resolutions_json = json.dumps(
+        [
+            {
+                "title": resolution.title,
+                "validated_at": resolution.validated_at,
+            }
+            for resolution in recent_resolutions
+        ]
+    )
     with sqlite3.connect(database_path) as connection:
         connection.execute(
             """
@@ -173,14 +187,16 @@ def upsert_cached_score(
                 global_rank,
                 challenges_count,
                 profile_url,
+                recent_resolutions_json,
                 fetched_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(rootme_id) DO UPDATE SET
                 rootme_pseudo = excluded.rootme_pseudo,
                 score = excluded.score,
                 global_rank = excluded.global_rank,
                 challenges_count = excluded.challenges_count,
                 profile_url = excluded.profile_url,
+                recent_resolutions_json = excluded.recent_resolutions_json,
                 fetched_at = excluded.fetched_at
             """,
             (
@@ -190,9 +206,34 @@ def upsert_cached_score(
                 global_rank,
                 challenges_count,
                 profile_url,
+                recent_resolutions_json,
                 fetched_at.isoformat(),
             ),
         )
+
+
+def get_cached_score_by_rootme_id(database_path: Path, rootme_id: int) -> CachedScore | None:
+    with sqlite3.connect(database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT
+                rootme_id,
+                rootme_pseudo,
+                score,
+                global_rank,
+                challenges_count,
+                profile_url,
+                recent_resolutions_json,
+                fetched_at
+            FROM cache_scores
+            WHERE rootme_id = ?
+            """,
+            (rootme_id,),
+        ).fetchone()
+
+    if row is None:
+        return None
+    return _row_to_cached_score(row)
 
 
 def list_cached_scores_for_members(database_path: Path) -> list[CachedScore]:
@@ -206,6 +247,7 @@ def list_cached_scores_for_members(database_path: Path) -> list[CachedScore]:
                 cache_scores.global_rank,
                 cache_scores.challenges_count,
                 cache_scores.profile_url,
+                cache_scores.recent_resolutions_json,
                 cache_scores.fetched_at
             FROM cache_scores
             INNER JOIN members ON members.rootme_id = cache_scores.rootme_id
@@ -213,18 +255,7 @@ def list_cached_scores_for_members(database_path: Path) -> list[CachedScore]:
             """
         ).fetchall()
 
-    return [
-        CachedScore(
-            rootme_id=int(row[0]),
-            rootme_pseudo=str(row[1]),
-            score=int(row[2]),
-            global_rank=int(row[3]) if row[3] is not None else None,
-            challenges_count=int(row[4]),
-            profile_url=str(row[5]),
-            fetched_at=datetime.fromisoformat(str(row[6])),
-        )
-        for row in rows
-    ]
+    return [_row_to_cached_score(row) for row in rows]
 
 
 def _row_to_member(row: tuple[object, ...]) -> Member:
@@ -234,4 +265,30 @@ def _row_to_member(row: tuple[object, ...]) -> Member:
         rootme_id=int(row[2]) if row[2] is not None else None,
         added_by=str(row[3]) if row[3] is not None else None,
         added_at=str(row[4]),
+    )
+
+
+def _row_to_cached_score(row: tuple[object, ...]) -> CachedScore:
+    resolutions_payload = json.loads(str(row[6]))
+    recent_resolutions = tuple(
+        ChallengeResolution(
+            title=str(item.get("title", "")),
+            validated_at=(
+                str(item["validated_at"])
+                if item.get("validated_at") is not None
+                else None
+            ),
+        )
+        for item in resolutions_payload
+        if isinstance(item, dict) and item.get("title")
+    )
+    return CachedScore(
+        rootme_id=int(row[0]),
+        rootme_pseudo=str(row[1]),
+        score=int(row[2]),
+        global_rank=int(row[3]) if row[3] is not None else None,
+        challenges_count=int(row[4]),
+        profile_url=str(row[5]),
+        recent_resolutions=recent_resolutions,
+        fetched_at=datetime.fromisoformat(str(row[7])),
     )

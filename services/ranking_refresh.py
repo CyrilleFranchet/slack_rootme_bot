@@ -53,7 +53,7 @@ def refresh_ranking_cache(settings: Settings) -> None:
 
     try:
         profiles = asyncio.run(
-            client.get_ranking_profiles_by_ids(
+            client.get_profiles_by_ids(
                 [member.rootme_id for member in members if member.rootme_id is not None]
             )
         )
@@ -76,5 +76,6 @@ def _store_profile_snapshot(settings: Settings, profile: RootMeProfile) -> None:
         global_rank=profile.global_rank,
         challenges_count=profile.challenges_count,
         profile_url=profile.profile_url,
+        recent_resolutions=profile.recent_resolutions,
         fetched_at=profile.fetched_at,
     )

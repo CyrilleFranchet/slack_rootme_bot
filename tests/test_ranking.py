@@ -14,6 +14,7 @@ def test_build_ranking_sorts_by_score_descending() -> None:
         challenges_count=1,
         profile_url="https://www.root-me.org/low",
         categories=(),
+        recent_resolutions=(),
         fetched_at=fetched_at,
     )
     high = RootMeProfile(
@@ -24,6 +25,7 @@ def test_build_ranking_sorts_by_score_descending() -> None:
         challenges_count=5,
         profile_url="https://www.root-me.org/high",
         categories=(),
+        recent_resolutions=(),
         fetched_at=fetched_at,
     )
 

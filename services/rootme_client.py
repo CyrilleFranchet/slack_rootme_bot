@@ -37,6 +37,12 @@ class CategoryProgress:
 
 
 @dataclass(frozen=True)
+class ChallengeResolution:
+    title: str
+    validated_at: str | None = None
+
+
+@dataclass(frozen=True)
 class RootMeProfile:
     id: int
     username: str
@@ -45,6 +51,7 @@ class RootMeProfile:
     challenges_count: int
     profile_url: str
     categories: tuple[CategoryProgress, ...]
+    recent_resolutions: tuple[ChallengeResolution, ...]
     fetched_at: datetime
 
 
@@ -265,6 +272,7 @@ class RootMeClient:
         global_rank = self._pick_int(author, "position", "rang", "rank")
         validations_count = self._count_validations(author, validations)
         categories = self._extract_categories(author)
+        recent_resolutions = self._extract_recent_resolutions(validations)
 
         return RootMeProfile(
             id=author_id,
@@ -274,6 +282,7 @@ class RootMeClient:
             challenges_count=validations_count,
             profile_url=profile_url,
             categories=tuple(categories),
+            recent_resolutions=tuple(recent_resolutions),
             fetched_at=datetime.now(UTC),
         )
 
@@ -317,6 +326,37 @@ class RootMeClient:
 
         categories.sort(key=lambda item: item.completed, reverse=True)
         return categories[:8]
+
+    def _extract_recent_resolutions(self, validations: list[Any]) -> list[ChallengeResolution]:
+        resolutions: list[ChallengeResolution] = []
+        for item in validations:
+            if not isinstance(item, dict):
+                continue
+
+            title = self._pick_str(item, "titre", "title", "nom", "challenge_title")
+            challenge = item.get("challenge")
+            if title is None and isinstance(challenge, dict):
+                title = self._pick_str(challenge, "titre", "title", "nom")
+            if title is None:
+                continue
+
+            validated_at = self._pick_str(
+                item,
+                "date",
+                "date_validation",
+                "validated_at",
+                "created_at",
+                "timestamp",
+            )
+            resolutions.append(
+                ChallengeResolution(title=title, validated_at=validated_at)
+            )
+
+        resolutions.sort(
+            key=lambda resolution: resolution.validated_at or "",
+            reverse=True,
+        )
+        return resolutions[:5]
 
     @staticmethod
     def _extract_items(payload: Any) -> list[dict[str, Any]]:

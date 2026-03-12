@@ -117,6 +117,7 @@ def build_ranking_blocks(entries: list[RankingEntry], *, updated_at: datetime) -
 
 def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
     category_lines = _format_categories(profile.categories)
+    recent_resolution_lines = _format_recent_resolutions(profile)
     blocks: list[dict[str, Any]] = [
         {
             "type": "header",
@@ -135,6 +136,17 @@ def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
             },
         },
     ]
+
+    if recent_resolution_lines:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*Latest challenge solves*\n" + "\n".join(recent_resolution_lines),
+                },
+            }
+        )
 
     if category_lines:
         blocks.append(
@@ -384,4 +396,14 @@ def _format_categories(categories: tuple[CategoryProgress, ...]) -> list[str]:
         if category.total is not None:
             progress = f"{progress}/{category.total:,}"
         lines.append(f"• *{category.name}*: {progress}")
+    return lines
+
+
+def _format_recent_resolutions(profile: RootMeProfile) -> list[str]:
+    lines: list[str] = []
+    for resolution in profile.recent_resolutions:
+        if resolution.validated_at:
+            lines.append(f"- {resolution.validated_at}: {resolution.title}")
+        else:
+            lines.append(f"- {resolution.title}")
     return lines
