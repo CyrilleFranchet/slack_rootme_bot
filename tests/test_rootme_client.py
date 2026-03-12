@@ -1,4 +1,5 @@
 from services.rootme_client import RootMeClient, RootMeRateLimitError
+import asyncio
 
 
 def test_build_profile_parses_author_and_validations_payloads() -> None:
@@ -89,6 +90,49 @@ def test_build_profile_supports_string_rank_labels() -> None:
 
     assert profile.rootme_rank == "insider"
     assert profile.rootme_position == 3016
+
+
+def test_get_profile_by_id_prefers_inline_validations_and_caps_recent_resolutions() -> None:
+    client = RootMeClient(
+        api_key="test",
+        base_url="https://api.www.root-me.org",
+        request_delay_ms=0,
+        timeout_seconds=10,
+    )
+
+    requested_paths: list[str] = []
+
+    async def fake_request_json(path: str, *, params=None):
+        requested_paths.append(path)
+        if path == "/auteurs/8466":
+            return {
+                "id_auteur": "8466",
+                "nom": "kyr1ll0s",
+                "score": "3345",
+                "position": 3016,
+                "rang": "insider",
+                "validations": [
+                    {"titre": "Windows - ASRepRoast", "date": "2026-03-11 23:12:53"},
+                    {"titre": "Windows - KerbeRoast", "date": "2026-03-11 22:59:26"},
+                    {"titre": "NTLM - Authentification", "date": "2026-03-11 21:05:03"},
+                    {"titre": "Kerberos - Authentification", "date": "2026-03-09 23:10:05"},
+                    {"titre": "Shared Objects hijacking", "date": "2020-08-11 14:26:19"},
+                    {"titre": "Powershell -  Command injection ", "date": "2020-07-23 14:40:13"},
+                ],
+            }
+        raise AssertionError(f"Unexpected path {path}")
+
+    client._request_json = fake_request_json  # type: ignore[method-assign]
+
+    profile = asyncio.run(client.get_profile_by_id(8466))
+
+    assert requested_paths == ["/auteurs/8466"]
+    assert profile.rootme_rank == "insider"
+    assert profile.rootme_position == 3016
+    assert profile.challenges_count == 6
+    assert len(profile.recent_resolutions) == 5
+    assert profile.recent_resolutions[0].title == "Windows - ASRepRoast"
+    assert profile.recent_resolutions[-1].title == "Shared Objects hijacking"
 
 
 def test_extract_search_candidates_handles_nested_search_payload() -> None:
@@ -190,8 +234,6 @@ def test_search_exact_candidate_ids_keeps_only_exact_matches_across_pages() -> N
         ]
 
     client._request_json = fake_request_json  # type: ignore[method-assign]
-
-    import asyncio
 
     candidate_ids = asyncio.run(client._search_exact_candidate_ids("Phil"))
 

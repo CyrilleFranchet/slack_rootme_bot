@@ -86,8 +86,13 @@ class RootMeClient:
 
     async def get_profile_by_id(self, author_id: int) -> RootMeProfile:
         author_payload = await self._request_json(f"/auteurs/{author_id}")
-        validations_payload = await self._request_json(f"/auteurs/{author_id}/validations")
         author = self._unwrap_object(author_payload)
+        inline_validations = author.get("validations")
+        validations_payload = (
+            inline_validations
+            if isinstance(inline_validations, list)
+            else await self._request_json(f"/auteurs/{author_id}/validations")
+        )
         fallback_username = self._pick_str(author, "nom", "name", default=str(author_id)) or str(author_id)
         return self._build_profile(
             author_payload,
