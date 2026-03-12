@@ -38,6 +38,8 @@ def build_help_blocks(
                     "Show details for a specific Root-Me profile.\n\n"
                     "*`/rootme add <rootme_id>`*\n"
                     "Fetch a Root-Me profile by ID, then ask for confirmation before tracking it.\n\n"
+                    "*`/rootme list`*\n"
+                    "Show the tracked members and who added them.\n\n"
                     "*`/rootme remove <username>`*\n"
                     "Ask for confirmation, then remove a tracked member."
                 ),
@@ -50,7 +52,7 @@ def build_help_blocks(
                     "type": "mrkdwn",
                     "text": (
                         "Aliases: `/rootme aide`, `/rootme classement`, `/rootme profil <username>`, "
-                        "`/rootme ajouter <rootme_id>`, and `/rootme supprimer <username>`."
+                        "`/rootme ajouter <rootme_id>`, `/rootme liste`, and `/rootme supprimer <username>`."
                     ),
                 }
             ],
@@ -165,6 +167,38 @@ def build_member_added_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
                     f"Global rank: {_format_global_rank(profile.global_rank)}"
                 ),
             },
+        },
+    ]
+
+
+def build_member_list_blocks(members: list[dict[str, str]]) -> list[dict[str, Any]]:
+    if not members:
+        return [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": ":busts_in_silhouette: Tracked members"},
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "No Root-Me members are currently tracked.",
+                },
+            },
+        ]
+
+    lines = [
+        f"*{member['rootme_pseudo']}*  |  ID `{member['rootme_id']}`  |  added by {member['added_by']}"
+        for member in members
+    ]
+    return [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": ":busts_in_silhouette: Tracked members"},
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "\n".join(lines)},
         },
     ]
 

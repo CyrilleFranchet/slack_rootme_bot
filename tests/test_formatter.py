@@ -7,6 +7,7 @@ from utils.formatter import (
     build_candidate_selection_blocks,
     build_help_blocks,
     build_member_added_blocks,
+    build_member_list_blocks,
     build_profile_blocks,
     build_ranking_blocks,
     build_remove_confirmation_blocks,
@@ -97,6 +98,21 @@ def test_build_add_confirmation_blocks_contains_actions() -> None:
 
     assert blocks[-1]["type"] == "actions"
     assert len(blocks[-1]["elements"]) == 2
+
+
+def test_build_member_list_blocks_contains_adder() -> None:
+    blocks = build_member_list_blocks(
+        [
+            {
+                "rootme_pseudo": "alice",
+                "rootme_id": "42",
+                "added_by": "<@U123>",
+            }
+        ]
+    )
+
+    assert "alice" in blocks[1]["text"]["text"]
+    assert "<@U123>" in blocks[1]["text"]["text"]
 
 
 def test_build_remove_confirmation_blocks_contains_buttons() -> None:

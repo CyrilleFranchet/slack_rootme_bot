@@ -30,6 +30,7 @@ from utils.formatter import (
     build_error_blocks,
     build_help_blocks,
     build_member_added_blocks,
+    build_member_list_blocks,
     build_profile_blocks,
     build_remove_confirmation_blocks,
     build_ranking_blocks,
@@ -45,6 +46,8 @@ SUPPORTED_SUBCOMMANDS = {
     "profil",
     "add",
     "ajouter",
+    "list",
+    "liste",
     "remove",
     "supprimer",
 }
@@ -86,6 +89,14 @@ def register_commands(app: App, settings: Settings) -> None:
                 settings=settings,
                 rootme_client=_build_rootme_client(settings),
                 username=" ".join(parts[1:]).strip(),
+            )
+            return
+
+        if subcommand in {"list", "liste"}:
+            ack()
+            _handle_list_command(
+                respond,
+                settings=settings,
             )
             return
 
@@ -267,6 +278,23 @@ def _handle_add_command(
         return
 
     respond(blocks=build_add_confirmation_blocks(profile), response_type="ephemeral")
+
+
+def _handle_list_command(
+    respond: Any,
+    *,
+    settings: Settings,
+) -> None:
+    members = list_members(settings.database_path)
+    payload = [
+        {
+            "rootme_pseudo": member.rootme_pseudo,
+            "rootme_id": str(member.rootme_id) if member.rootme_id is not None else "unknown",
+            "added_by": f"<@{member.added_by}>" if member.added_by else "unknown user",
+        }
+        for member in members
+    ]
+    respond(blocks=build_member_list_blocks(payload), response_type="ephemeral")
 
 
 def _handle_remove_command(
