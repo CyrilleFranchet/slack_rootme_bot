@@ -5,15 +5,20 @@ import logging
 import threading
 import time
 
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+
 from config import Settings
-from db.models import list_members, upsert_cached_score
+from db.models import get_cached_score_by_rootme_id, list_members, upsert_cached_score
 from services.rootme_client import (
+    ChallengeResolution,
     RootMeApiError,
     RootMeAuthenticationError,
     RootMeClient,
     RootMeProfile,
     RootMeRateLimitError,
 )
+from utils.formatter import build_challenge_solved_blocks
 
 
 logger = logging.getLogger(__name__)
@@ -63,8 +68,16 @@ def refresh_ranking_cache(settings: Settings) -> None:
         logger.exception("Ranking cache refresh failed")
         return
 
+    slack_client = _build_slack_client(settings)
     for profile in profiles:
+        previous_snapshot = get_cached_score_by_rootme_id(settings.database_path, profile.id)
         _store_profile_snapshot(settings, profile)
+        _announce_new_resolutions(
+            settings,
+            slack_client=slack_client,
+            profile=profile,
+            previous_snapshot=previous_snapshot,
+        )
 
     logger.info("Ranking cache refreshed for %s tracked members", len(profiles))
 
@@ -82,3 +95,44 @@ def _store_profile_snapshot(settings: Settings, profile: RootMeProfile) -> None:
         recent_resolutions=profile.recent_resolutions,
         fetched_at=profile.fetched_at,
     )
+
+
+def _build_slack_client(settings: Settings) -> WebClient | None:
+    if not settings.slack_activity_channel_id:
+        return None
+    return WebClient(token=settings.slack_bot_token)
+
+
+def _announce_new_resolutions(
+    settings: Settings,
+    *,
+    slack_client: WebClient | None,
+    profile: RootMeProfile,
+    previous_snapshot,
+) -> None:
+    if slack_client is None or previous_snapshot is None:
+        return
+
+    known_resolutions = {
+        (resolution.title, resolution.validated_at)
+        for resolution in previous_snapshot.recent_resolutions
+    }
+    new_resolutions = [
+        resolution
+        for resolution in profile.recent_resolutions
+        if (resolution.title, resolution.validated_at) not in known_resolutions
+    ]
+    if not new_resolutions:
+        return
+
+    try:
+        slack_client.chat_postMessage(
+            channel=settings.slack_activity_channel_id,
+            blocks=build_challenge_solved_blocks(profile, new_resolutions),
+            text=f"{profile.username} solved new Root-Me challenges.",
+        )
+    except SlackApiError:
+        logger.exception(
+            "Failed to post Root-Me activity notification",
+            extra={"rootme_id": profile.id, "username": profile.username},
+        )

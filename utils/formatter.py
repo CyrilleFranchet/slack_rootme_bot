@@ -176,6 +176,40 @@ def build_detailed_ranking_blocks(
     return blocks
 
 
+def build_challenge_solved_blocks(
+    profile: RootMeProfile,
+    recent_resolutions: list[ChallengeResolution],
+) -> list[dict[str, Any]]:
+    lines = []
+    for resolution in recent_resolutions:
+        if resolution.validated_at:
+            lines.append(f"• {resolution.validated_at} - {resolution.title}")
+        else:
+            lines.append(f"• {resolution.title}")
+
+    return [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": ":tada: Root-Me activity"},
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"*{profile.username}* solved "
+                    f"{len(recent_resolutions)} new challenge"
+                    f"{'' if len(recent_resolutions) == 1 else 's'}."
+                ),
+            },
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": "\n".join(lines)},
+        },
+    ]
+
+
 def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
     category_lines = _format_categories(profile.categories)
     recent_resolution_lines = _format_recent_resolutions(profile)

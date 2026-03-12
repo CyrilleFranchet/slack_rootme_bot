@@ -29,3 +29,4 @@ def test_settings_loads_rootme_api_defaults(monkeypatch: pytest.MonkeyPatch) -> 
     assert settings.rootme_api_base_url == "https://api.www.root-me.org"
     assert settings.rootme_timeout_seconds == 10.0
     assert settings.ranking_refresh_interval_seconds == 3600
+    assert settings.slack_activity_channel_id is None

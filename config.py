@@ -15,6 +15,7 @@ class Settings:
     slack_bot_token: str
     slack_signing_secret: str
     slack_app_token: str
+    slack_activity_channel_id: str | None
     rootme_api_key: str
     database_path: Path
     rootme_api_base_url: str
@@ -29,6 +30,7 @@ class Settings:
             slack_bot_token=_require_env("SLACK_BOT_TOKEN"),
             slack_signing_secret=_require_env("SLACK_SIGNING_SECRET"),
             slack_app_token=_require_env("SLACK_APP_TOKEN"),
+            slack_activity_channel_id=os.getenv("SLACK_ACTIVITY_CHANNEL_ID"),
             rootme_api_key=_require_env("ROOTME_API_KEY"),
             database_path=Path(os.getenv("DATABASE_PATH", "./data/bot.db")),
             rootme_api_base_url=os.getenv("ROOTME_API_BASE_URL", "https://api.www.root-me.org"),

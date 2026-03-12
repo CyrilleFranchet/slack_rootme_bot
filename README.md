@@ -102,6 +102,8 @@ French aliases are also supported:
 
 The bot refreshes ranking snapshots in the background every hour by default and stores them in SQLite. Each snapshot includes the Root-Me global rank, score, solved challenge count, profile URL, and the latest five recorded challenge solves with dates. Adjust the schedule with `RANKING_REFRESH_INTERVAL_SECONDS` in `.env`.
 
+If `SLACK_ACTIVITY_CHANNEL_ID` is configured, the background refresh also posts a Slack message when it detects newly solved challenges since the previous cached snapshot.
+
 ## Deployment automation
 
 For a VPS deployment, use `systemd` instead of `cron`. The bot runs as a long-lived Socket Mode process, so it should restart automatically on crashes and on host reboot.
