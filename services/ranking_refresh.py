@@ -19,17 +19,19 @@ from services.rootme_client import (
 logger = logging.getLogger(__name__)
 
 
-def start_ranking_refresh_loop(settings: Settings) -> None:
+def start_ranking_refresh_loop(settings: Settings, *, run_immediately: bool = True) -> None:
     thread = threading.Thread(
         target=_run_refresh_loop,
-        args=(settings,),
+        args=(settings, run_immediately),
         name="rootme-ranking-refresh",
         daemon=True,
     )
     thread.start()
 
 
-def _run_refresh_loop(settings: Settings) -> None:
+def _run_refresh_loop(settings: Settings, run_immediately: bool) -> None:
+    if not run_immediately:
+        time.sleep(max(settings.ranking_refresh_interval_seconds, 60))
     while True:
         try:
             refresh_ranking_cache(settings)

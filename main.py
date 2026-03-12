@@ -31,7 +31,7 @@ def create_app(settings: Settings) -> App:
 def main() -> None:
     settings = Settings.from_env()
     initialize_database(settings.database_path)
-    start_ranking_refresh_loop(settings)
+    start_ranking_refresh_loop(settings, run_immediately=True)
     app = create_app(settings)
     handler = SocketModeHandler(app, settings.slack_app_token)
     handler.start()
