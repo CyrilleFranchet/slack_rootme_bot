@@ -15,7 +15,7 @@ def initialize_database(database_path: Path) -> None:
                 rootme_id INTEGER PRIMARY KEY,
                 rootme_pseudo TEXT NOT NULL,
                 score INTEGER NOT NULL,
-                rootme_rank INTEGER,
+                rootme_rank TEXT,
                 rootme_position INTEGER,
                 challenges_count INTEGER NOT NULL,
                 profile_url TEXT NOT NULL,

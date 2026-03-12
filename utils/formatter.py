@@ -387,10 +387,13 @@ def _format_ranking_line(entry: RankingEntry) -> str:
     )
 
 
-def _format_rootme_rank(rank: int | None) -> str:
+def _format_rootme_rank(rank: str | None) -> str:
     if rank is None:
         return "Unknown"
-    return f"#{rank:,}"
+    normalized = rank.strip()
+    if normalized.isdigit():
+        return f"#{int(normalized):,}"
+    return normalized
 
 
 def _format_rootme_position(position: int | None) -> str:

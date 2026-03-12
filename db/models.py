@@ -23,7 +23,7 @@ class CachedScore:
     rootme_id: int
     rootme_pseudo: str
     score: int
-    rootme_rank: int | None
+    rootme_rank: str | None
     rootme_position: int | None
     challenges_count: int
     profile_url: str
@@ -163,7 +163,7 @@ def upsert_cached_score(
     rootme_id: int,
     rootme_pseudo: str,
     score: int,
-    rootme_rank: int | None,
+    rootme_rank: str | None,
     rootme_position: int | None,
     challenges_count: int,
     profile_url: str,
@@ -297,7 +297,7 @@ def _row_to_cached_score(row: tuple[object, ...]) -> CachedScore:
         rootme_id=int(row[0]),
         rootme_pseudo=str(row[1]),
         score=int(row[2]),
-        rootme_rank=int(row[3]) if row[3] is not None else None,
+        rootme_rank=str(row[3]) if row[3] is not None else None,
         rootme_position=int(row[4]) if row[4] is not None else None,
         challenges_count=int(row[5]),
         profile_url=str(row[6]),

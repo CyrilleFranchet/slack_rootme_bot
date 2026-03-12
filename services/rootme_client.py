@@ -47,7 +47,7 @@ class RootMeProfile:
     id: int
     username: str
     score: int
-    rootme_rank: int | None
+    rootme_rank: str | None
     rootme_position: int | None
     challenges_count: int
     profile_url: str
@@ -270,7 +270,7 @@ class RootMeClient:
             default=f"https://www.root-me.org/{username}",
         )
         score = self._pick_int(author, "score", default=0) or 0
-        rootme_rank = self._pick_int(author, "rang", "rank")
+        rootme_rank = self._pick_str(author, "rang", "rank")
         rootme_position = self._pick_int(author, "position")
         validations_count = self._count_validations(author, validations)
         categories = self._extract_categories(author)

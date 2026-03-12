@@ -34,7 +34,7 @@ def test_build_profile_parses_author_and_validations_payloads() -> None:
 
     assert profile.username == "alice"
     assert profile.score == 2450
-    assert profile.rootme_rank == 999
+    assert profile.rootme_rank == "999"
     assert profile.rootme_position == 1203
     assert profile.challenges_count == 3
     assert profile.categories[0].name == "Cracking"
@@ -62,8 +62,33 @@ def test_build_profile_keeps_rang_and_position_separate() -> None:
         fallback_username="alice",
     )
 
-    assert profile.rootme_rank == 999
+    assert profile.rootme_rank == "999"
     assert profile.rootme_position == 1203
+
+
+def test_build_profile_supports_string_rank_labels() -> None:
+    client = RootMeClient(
+        api_key="test",
+        base_url="https://api.www.root-me.org",
+        request_delay_ms=0,
+        timeout_seconds=10,
+    )
+
+    profile = client._build_profile(
+        {
+            "id": 8466,
+            "nom": "kyr1ll0s",
+            "score": "3345",
+            "position": 3016,
+            "rang": "insider",
+            "url": "https://www.root-me.org/kyr1ll0s",
+        },
+        validations_payload={"items": []},
+        fallback_username="kyr1ll0s",
+    )
+
+    assert profile.rootme_rank == "insider"
+    assert profile.rootme_position == 3016
 
 
 def test_extract_search_candidates_handles_nested_search_payload() -> None:
