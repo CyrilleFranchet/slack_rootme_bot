@@ -269,7 +269,7 @@ class RootMeClient:
             default=f"https://www.root-me.org/{username}",
         )
         score = self._pick_int(author, "score", default=0) or 0
-        global_rank = self._pick_int(author, "position", "rang", "rank")
+        global_rank = self._pick_int(author, "rang", "rank", "position")
         validations_count = self._count_validations(author, validations)
         categories = self._extract_categories(author)
         recent_resolutions = self._extract_recent_resolutions(validations)

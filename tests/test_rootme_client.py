@@ -39,6 +39,30 @@ def test_build_profile_parses_author_and_validations_payloads() -> None:
     assert len(profile.recent_resolutions) == 3
 
 
+def test_build_profile_prefers_rang_over_position() -> None:
+    client = RootMeClient(
+        api_key="test",
+        base_url="https://api.www.root-me.org",
+        request_delay_ms=0,
+        timeout_seconds=10,
+    )
+
+    profile = client._build_profile(
+        {
+            "id": 42,
+            "nom": "alice",
+            "score": "2450",
+            "position": "1203",
+            "rang": "999",
+            "url": "https://www.root-me.org/alice",
+        },
+        validations_payload={"items": []},
+        fallback_username="alice",
+    )
+
+    assert profile.global_rank == 999
+
+
 def test_extract_search_candidates_handles_nested_search_payload() -> None:
     client = RootMeClient(
         api_key="test",
