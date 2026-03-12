@@ -84,7 +84,7 @@ When the bot is connected, run `/rootme help` in Slack to verify the integration
 - `/rootme help` shows the supported commands.
 - `/rootme ranking` reads cached ranking snapshots from SQLite and posts the leaderboard in-channel.
 - `/rootme profile <username>` fetches a single Root-Me profile and returns the details as an ephemeral reply.
-- `/rootme add <username>` validates the username against Root-Me, then stores it in SQLite.
+- `/rootme add <rootme_id>` fetches a Root-Me profile by numeric ID, shows the details, then requires confirmation before storing it in SQLite.
 - `/rootme remove <username>` opens a confirmation prompt with interactive buttons before deletion.
 
 French aliases are also supported:
@@ -92,7 +92,7 @@ French aliases are also supported:
 - `/rootme aide`
 - `/rootme classement`
 - `/rootme profil <username>`
-- `/rootme ajouter <username>`
+- `/rootme ajouter <rootme_id>`
 - `/rootme supprimer <username>`
 
 ## Ranking cache

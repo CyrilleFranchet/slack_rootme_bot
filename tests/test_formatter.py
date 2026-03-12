@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from services.ranking import RankingEntry
 from services.rootme_client import RootMeProfile
 from utils.formatter import (
+    build_add_confirmation_blocks,
     build_candidate_selection_blocks,
     build_help_blocks,
     build_member_added_blocks,
@@ -78,6 +79,24 @@ def test_build_member_added_blocks_contains_username() -> None:
     blocks = build_member_added_blocks(profile)
 
     assert "carol" in blocks[1]["text"]["text"]
+
+
+def test_build_add_confirmation_blocks_contains_actions() -> None:
+    profile = RootMeProfile(
+        id=8,
+        username="carol",
+        score=800,
+        global_rank=111,
+        challenges_count=20,
+        profile_url="https://www.root-me.org/carol",
+        categories=(),
+        fetched_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
+    )
+
+    blocks = build_add_confirmation_blocks(profile)
+
+    assert blocks[-1]["type"] == "actions"
+    assert len(blocks[-1]["elements"]) == 2
 
 
 def test_build_remove_confirmation_blocks_contains_buttons() -> None:

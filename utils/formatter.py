@@ -36,8 +36,8 @@ def build_help_blocks(
                     "Show the tracked-member leaderboard.\n\n"
                     "*`/rootme profile <username>`*\n"
                     "Show details for a specific Root-Me profile.\n\n"
-                    "*`/rootme add <username>`*\n"
-                    "Validate and add a tracked Root-Me member.\n\n"
+                    "*`/rootme add <rootme_id>`*\n"
+                    "Fetch a Root-Me profile by ID, then ask for confirmation before tracking it.\n\n"
                     "*`/rootme remove <username>`*\n"
                     "Ask for confirmation, then remove a tracked member."
                 ),
@@ -50,7 +50,7 @@ def build_help_blocks(
                     "type": "mrkdwn",
                     "text": (
                         "Aliases: `/rootme aide`, `/rootme classement`, `/rootme profil <username>`, "
-                        "`/rootme ajouter <username>`, and `/rootme supprimer <username>`."
+                        "`/rootme ajouter <rootme_id>`, and `/rootme supprimer <username>`."
                     ),
                 }
             ],
@@ -83,7 +83,7 @@ def build_empty_ranking_blocks() -> list[dict[str, Any]]:
                 "type": "mrkdwn",
                 "text": (
                     "No tracked members are stored yet. "
-                    "Use `/rootme add <username>` to start tracking someone."
+                    "Use `/rootme add <rootme_id>` to start tracking someone."
                 ),
             },
         },
@@ -166,6 +166,45 @@ def build_member_added_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
                 ),
             },
         },
+    ]
+
+
+def build_add_confirmation_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
+    payload = json.dumps({"rootme_id": profile.id})
+    blocks = build_profile_blocks(profile)
+    blocks.append(
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Add member"},
+                    "style": "primary",
+                    "action_id": "confirm_add_member",
+                    "value": payload,
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Cancel"},
+                    "action_id": "cancel_add_member",
+                    "value": payload,
+                },
+            ],
+        }
+    )
+    return blocks
+
+
+def build_add_cancelled_blocks(rootme_id: int | None) -> list[dict[str, Any]]:
+    suffix = f" for Root-Me ID `{rootme_id}`" if rootme_id is not None else ""
+    return [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f":information_source: Add request cancelled{suffix}.",
+            },
+        }
     ]
 
 

@@ -24,6 +24,7 @@ from services.rootme_client import (
     RootMeRateLimitError,
 )
 from utils.formatter import (
+    build_add_confirmation_blocks,
     build_candidate_selection_blocks,
     build_empty_ranking_blocks,
     build_error_blocks,
@@ -85,7 +86,6 @@ def register_commands(app: App, settings: Settings) -> None:
                 settings=settings,
                 rootme_client=_build_rootme_client(settings),
                 username=" ".join(parts[1:]).strip(),
-                added_by=command.get("user_id"),
             )
             return
 
@@ -203,53 +203,70 @@ def _handle_add_command(
     settings: Settings,
     rootme_client: RootMeClient,
     username: str,
-    added_by: str | None,
 ) -> None:
     if not username:
         respond(
             blocks=build_error_blocks(
-                title="Missing username",
-                body="Usage: `/rootme add <username>`",
+                title="Missing Root-Me ID",
+                body="Usage: `/rootme add <rootme_id>`",
             ),
             response_type="ephemeral",
         )
         return
 
-    profiles = _search_profiles_or_respond(respond, rootme_client=rootme_client, username=username)
-    if profiles is None:
-        return
-
-    available_profiles = [
-        profile for profile in profiles if get_member_by_rootme_id(settings.database_path, profile.id) is None
-    ]
-    if not available_profiles:
+    try:
+        rootme_id = int(username)
+    except ValueError:
         respond(
             blocks=build_error_blocks(
-                title="Members already tracked",
-                body=f"All Root-Me accounts matching `{username}` are already in the tracked member list.",
+                title="Invalid Root-Me ID",
+                body="Usage: `/rootme add <rootme_id>` with a numeric Root-Me account ID.",
             ),
             response_type="ephemeral",
         )
         return
 
-    if len(available_profiles) > 1:
+    if get_member_by_rootme_id(settings.database_path, rootme_id) is not None:
         respond(
-            blocks=build_candidate_selection_blocks(
-                title=":mag: Multiple Root-Me profiles found",
-                body="More than one Root-Me account matches that username. Choose which account to add.",
-                profiles=available_profiles,
-                action_id="select_add_member",
+            blocks=build_error_blocks(
+                title="Member already tracked",
+                body=f"The Root-Me account with ID `{rootme_id}` is already in the tracked member list.",
             ),
             response_type="ephemeral",
         )
         return
 
-    _persist_selected_profile(
-        respond,
-        settings=settings,
-        profile=available_profiles[0],
-        added_by=added_by,
-    )
+    try:
+        profile = asyncio.run(rootme_client.get_profile_by_id(rootme_id))
+    except RootMeAuthenticationError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me authentication failed",
+                body="The configured `ROOTME_API_KEY` was rejected by Root-Me. Update the API key and restart the bot.",
+            ),
+            response_type="ephemeral",
+        )
+        return
+    except RootMeRateLimitError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me rate limit reached",
+                body="Root-Me is temporarily rate limiting requests. Wait a bit and try the command again.",
+            ),
+            response_type="ephemeral",
+        )
+        return
+    except RootMeApiError:
+        respond(
+            blocks=build_error_blocks(
+                title="Root-Me API unavailable",
+                body="The Root-Me API is temporarily unavailable. Please try again in a few minutes.",
+            ),
+            response_type="ephemeral",
+        )
+        return
+
+    respond(blocks=build_add_confirmation_blocks(profile), response_type="ephemeral")
 
 
 def _handle_remove_command(

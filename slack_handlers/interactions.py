@@ -21,6 +21,7 @@ from services.rootme_client import (
     RootMeRateLimitError,
 )
 from utils.formatter import (
+    build_add_cancelled_blocks,
     build_error_blocks,
     build_member_added_blocks,
     build_member_removed_blocks,
@@ -50,8 +51,8 @@ def register_interactions(app: App, settings: Settings) -> None:
 
         respond(blocks=build_profile_blocks(profile), replace_original=True, response_type="ephemeral")
 
-    @app.action("select_add_member")
-    def handle_select_add_member(ack: Any, body: dict[str, Any], respond: Any) -> None:
+    @app.action("confirm_add_member")
+    def handle_confirm_add_member(ack: Any, body: dict[str, Any], respond: Any) -> None:
         ack()
         rootme_id = _extract_int_payload(body, "rootme_id")
         if rootme_id is None:
@@ -100,6 +101,16 @@ def register_interactions(app: App, settings: Settings) -> None:
             blocks=build_member_added_blocks(profile),
             replace_original=True,
             response_type="in_channel",
+        )
+
+    @app.action("cancel_add_member")
+    def handle_cancel_add_member(ack: Any, body: dict[str, Any], respond: Any) -> None:
+        ack()
+        rootme_id = _extract_int_payload(body, "rootme_id")
+        respond(
+            blocks=build_add_cancelled_blocks(rootme_id),
+            replace_original=True,
+            response_type="ephemeral",
         )
 
     @app.action("select_remove_member")
