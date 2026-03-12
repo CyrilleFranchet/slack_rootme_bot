@@ -21,7 +21,7 @@ def create_app(settings: Settings) -> App:
         token=settings.slack_bot_token,
         signing_secret=settings.slack_signing_secret,
     )
-    register_commands(app)
+    register_commands(app, settings)
     return app
 
 

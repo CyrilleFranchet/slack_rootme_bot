@@ -11,7 +11,12 @@ M1 provides the project bootstrap:
 - Slack Bolt app startup in Socket Mode
 - `/rootme help` slash-command support
 
-The ranking, profile, and member management features are intentionally left for later milestones.
+M2 adds the live Root-Me integration for:
+
+- `/rootme ranking`
+- `/rootme profile <username>`
+
+Tracked member management is still planned for a later milestone.
 
 ## Requirements
 
@@ -24,7 +29,9 @@ The ranking, profile, and member management features are intentionally left for 
 1. Create a virtual environment.
 2. Install dependencies with `pip install -r requirements.txt`.
 3. Copy `.env.example` to `.env` and fill in the values.
-4. In Slack, create a slash command named `/rootme`.
+4. In Slack, create a slash command named `/rootme`, or import the provided manifest.
+
+Instead of configuring the app manually, you can import the manifest from [slack-app-manifest.yaml](/Users/cyrillefranchet/sas/repos/external/slack_rootme_bot/slack-app-manifest.yaml).
 
 Recommended OAuth scopes:
 
@@ -35,6 +42,26 @@ Recommended Socket Mode setting:
 
 - Enable Socket Mode and create an app-level token with the `connections:write` scope.
 
+## Slack app manifest
+
+This repository includes [slack-app-manifest.yaml](/Users/cyrillefranchet/sas/repos/external/slack_rootme_bot/slack-app-manifest.yaml) for Slack app creation.
+
+Import it from the Slack app admin UI:
+
+1. Go to `api.slack.com/apps`.
+2. Click `Create New App`.
+3. Choose `From an app manifest`.
+4. Select your workspace.
+5. Paste the contents of `slack-app-manifest.yaml`.
+6. Create the app, then install it to the workspace.
+
+After import, you still need to create the Socket Mode app-level token manually:
+
+1. Open the app in Slack.
+2. Go to `Basic Information`.
+3. Under `App-Level Tokens`, generate a token with the `connections:write` scope.
+4. Store it as `SLACK_APP_TOKEN` in `.env`.
+
 ## Run
 
 ```bash
@@ -42,6 +69,14 @@ python main.py
 ```
 
 When the bot is connected, run `/rootme help` in Slack to verify the integration.
+
+## M2 command behavior
+
+- `/rootme help` shows the supported commands.
+- `/rootme ranking` fetches every tracked member from the `members` SQLite table and posts the leaderboard in-channel.
+- `/rootme profile <username>` fetches a single Root-Me profile and returns the details as an ephemeral reply.
+
+Because M3 has not been implemented yet, the member list must currently be populated directly in SQLite if you want `/rootme ranking` to return data.
 
 ## Deployment automation
 

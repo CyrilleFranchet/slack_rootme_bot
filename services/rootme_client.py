@@ -1,1 +1,270 @@
-"""Root-Me API client will be implemented in M2."""
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass
+from datetime import UTC, datetime
+import math
+from typing import Any
+
+import httpx
+
+
+class RootMeApiError(Exception):
+    """Raised when the Root-Me API cannot satisfy a request."""
+
+
+class RootMeUserNotFoundError(RootMeApiError):
+    """Raised when a Root-Me username cannot be found."""
+
+
+@dataclass(frozen=True)
+class CategoryProgress:
+    name: str
+    completed: int
+    total: int | None = None
+
+
+@dataclass(frozen=True)
+class RootMeProfile:
+    id: int
+    username: str
+    score: int
+    global_rank: int | None
+    challenges_count: int
+    profile_url: str
+    categories: tuple[CategoryProgress, ...]
+    fetched_at: datetime
+
+
+class RootMeClient:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str,
+        request_delay_ms: int,
+        timeout_seconds: float,
+    ) -> None:
+        self._api_key = api_key
+        self._base_url = base_url.rstrip("/")
+        self._request_delay_seconds = max(request_delay_ms, 0) / 1000
+        self._timeout = timeout_seconds
+        self._rate_limit_lock = asyncio.Lock()
+        self._next_request_time = 0.0
+
+    async def get_profile(self, username: str) -> RootMeProfile:
+        author_id, resolved_username = await self._search_author(username)
+        author_payload = await self._request_json(f"/auteurs/{author_id}")
+        validations_payload = await self._request_json(f"/auteurs/{author_id}/validations")
+        return self._build_profile(
+            author_payload,
+            validations_payload=validations_payload,
+            fallback_username=resolved_username,
+        )
+
+    async def get_profiles(self, usernames: list[str]) -> list[RootMeProfile]:
+        profiles = await asyncio.gather(*(self.get_profile(username) for username in usernames))
+        return list(profiles)
+
+    async def _search_author(self, username: str) -> tuple[int, str]:
+        payload = await self._request_json("/auteurs", params={"nom": username})
+        candidates = self._extract_items(payload)
+
+        for candidate in candidates:
+            candidate_name = self._pick_str(candidate, "nom", "name", "titre")
+            candidate_id = self._pick_int(candidate, "id", "id_auteur", "auteur")
+            if candidate_id is None or candidate_name is None:
+                continue
+            if candidate_name.lower() == username.lower():
+                return candidate_id, candidate_name
+
+        if candidates:
+            first = candidates[0]
+            candidate_id = self._pick_int(first, "id", "id_auteur", "auteur")
+            candidate_name = self._pick_str(first, "nom", "name", "titre", default=username)
+            if candidate_id is not None:
+                return candidate_id, candidate_name
+
+        raise RootMeUserNotFoundError(
+            f"The Root-Me username `{username}` could not be found."
+        )
+
+    async def _request_json(
+        self,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        attempts = 3
+        backoff_seconds = 1.0
+
+        for attempt in range(1, attempts + 1):
+            await self._wait_for_rate_limit()
+            try:
+                async with httpx.AsyncClient(
+                    base_url=self._base_url,
+                    timeout=self._timeout,
+                    headers={
+                        "Cookie": f"api_key={self._api_key}",
+                        "Accept": "application/json",
+                    },
+                ) as client:
+                    response = await client.get(path, params=params)
+
+                if response.status_code == 404:
+                    raise RootMeUserNotFoundError("The requested Root-Me resource was not found.")
+                if response.status_code in {429, 500, 502, 503, 504}:
+                    raise RootMeApiError(
+                        f"Transient Root-Me API error ({response.status_code})."
+                    )
+
+                response.raise_for_status()
+                return response.json()
+            except RootMeUserNotFoundError:
+                raise
+            except (httpx.HTTPError, RootMeApiError) as exc:
+                if attempt == attempts:
+                    raise RootMeApiError(
+                        "The Root-Me API is temporarily unavailable."
+                    ) from exc
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds *= 2
+
+        raise RootMeApiError("The Root-Me API is temporarily unavailable.")
+
+    async def _wait_for_rate_limit(self) -> None:
+        async with self._rate_limit_lock:
+            loop = asyncio.get_running_loop()
+            now = loop.time()
+            if now < self._next_request_time:
+                await asyncio.sleep(self._next_request_time - now)
+                now = loop.time()
+            self._next_request_time = now + self._request_delay_seconds
+
+    def _build_profile(
+        self,
+        author_payload: Any,
+        *,
+        validations_payload: Any,
+        fallback_username: str,
+    ) -> RootMeProfile:
+        author = self._unwrap_object(author_payload)
+        validations = self._extract_items(validations_payload)
+
+        username = self._pick_str(author, "nom", "name", default=fallback_username)
+        author_id = self._pick_int(author, "id", "id_auteur")
+        if author_id is None:
+            raise RootMeApiError("The Root-Me API response did not include an author ID.")
+
+        profile_url = self._pick_str(
+            author,
+            "url",
+            "lien",
+            "profile_url",
+            default=f"https://www.root-me.org/{username}",
+        )
+        score = self._pick_int(author, "score", default=0) or 0
+        global_rank = self._pick_int(author, "position", "rang", "rank")
+        validations_count = self._count_validations(author, validations)
+        categories = self._extract_categories(author)
+
+        return RootMeProfile(
+            id=author_id,
+            username=username,
+            score=score,
+            global_rank=global_rank,
+            challenges_count=validations_count,
+            profile_url=profile_url,
+            categories=tuple(categories),
+            fetched_at=datetime.now(UTC),
+        )
+
+    def _count_validations(self, author: dict[str, Any], validations: list[Any]) -> int:
+        direct_count = self._pick_int(
+            author,
+            "nb_validations",
+            "validations_count",
+            "challenges_count",
+        )
+        if direct_count is not None:
+            return direct_count
+
+        nested = author.get("validations")
+        if isinstance(nested, list):
+            return len(nested)
+        if isinstance(nested, int):
+            return nested
+
+        return len(validations)
+
+    def _extract_categories(self, author: dict[str, Any]) -> list[CategoryProgress]:
+        categories_payload = author.get("categories") or author.get("stats") or []
+        if isinstance(categories_payload, dict):
+            categories_payload = list(categories_payload.values())
+        if not isinstance(categories_payload, list):
+            return []
+
+        categories: list[CategoryProgress] = []
+        for item in categories_payload:
+            if not isinstance(item, dict):
+                continue
+            name = self._pick_str(item, "nom", "name", "titre")
+            completed = self._pick_int(item, "validations", "count", "completed", default=0)
+            total = self._pick_int(item, "total", "total_challenges", "available")
+            if name is None:
+                continue
+            categories.append(
+                CategoryProgress(name=name, completed=completed or 0, total=total)
+            )
+
+        categories.sort(key=lambda item: item.completed, reverse=True)
+        return categories[:8]
+
+    @staticmethod
+    def _extract_items(payload: Any) -> list[dict[str, Any]]:
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+        if isinstance(payload, dict):
+            for key in ("items", "data", "auteurs", "children"):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    return [item for item in value if isinstance(item, dict)]
+            if all(not isinstance(value, (list, dict)) for value in payload.values()):
+                return [payload]
+        return []
+
+    @staticmethod
+    def _unwrap_object(payload: Any) -> dict[str, Any]:
+        if isinstance(payload, dict):
+            for key in ("data", "auteur", "item"):
+                value = payload.get(key)
+                if isinstance(value, dict):
+                    return value
+            return payload
+        raise RootMeApiError("Unexpected Root-Me API response format.")
+
+    @staticmethod
+    def _pick_str(payload: dict[str, Any], *keys: str, default: str | None = None) -> str | None:
+        for key in keys:
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return default
+
+    @staticmethod
+    def _pick_int(payload: dict[str, Any], *keys: str, default: int | None = None) -> int | None:
+        for key in keys:
+            value = payload.get(key)
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, int):
+                return value
+            if isinstance(value, float):
+                return math.floor(value)
+            if isinstance(value, str):
+                normalized = value.replace(" ", "").replace("#", "").replace(",", "")
+                if normalized.isdigit():
+                    return int(normalized)
+        return default

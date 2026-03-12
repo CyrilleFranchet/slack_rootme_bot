@@ -1,0 +1,29 @@
+display_information:
+  name: Root-Me Bot
+  description: Slack bot for Root-Me rankings and member lookups
+  background_color: "#0F172A"
+
+features:
+  bot_user:
+    display_name: Root-Me Bot
+    always_online: false
+  slash_commands:
+    - command: /rootme
+      description: Show help for the Root-Me Slack bot
+      usage_hint: "[help]"
+      should_escape: false
+
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+
+settings:
+  event_subscriptions:
+    bot_events: []
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
