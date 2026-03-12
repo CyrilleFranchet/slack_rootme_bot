@@ -43,6 +43,62 @@ python main.py
 
 When the bot is connected, run `/rootme help` in Slack to verify the integration.
 
+## Deployment automation
+
+For a VPS deployment, use `systemd` instead of `cron`. The bot runs as a long-lived Socket Mode process, so it should restart automatically on crashes and on host reboot.
+
+### pyenv-based service
+
+Find the exact interpreter managed by `pyenv`:
+
+```bash
+pyenv which python
+```
+
+Example output:
+
+```bash
+/home/your-user/.pyenv/versions/3.11.9/envs/rootme-bot/bin/python
+```
+
+Create `/etc/systemd/system/slack-rootme-bot.service` with the absolute `pyenv` interpreter path:
+
+```ini
+[Unit]
+Description=Root-Me Slack Bot
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/opt/slack_rootme_bot
+EnvironmentFile=/opt/slack_rootme_bot/.env
+ExecStart=/home/your-user/.pyenv/versions/3.11.9/envs/rootme-bot/bin/python /opt/slack_rootme_bot/main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now slack-rootme-bot
+sudo systemctl status slack-rootme-bot
+```
+
+Inspect failures with:
+
+```bash
+journalctl -xeu slack-rootme-bot.service
+```
+
+### Why not cron
+
+`cron` can start the bot at boot with `@reboot`, but it is fragile with `pyenv` because it does not load your interactive shell environment by default. `systemd` is the recommended process manager for this project.
+
 ## Project layout
 
 ```text
