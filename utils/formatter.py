@@ -223,6 +223,7 @@ def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:
             "text": {
                 "type": "mrkdwn",
                 "text": (
+                    f"*Root-Me ID*: `{profile.id}`\n"
                     f"*Score*: {profile.score:,} pts\n"
                     f"*Root-Me rank*: {_format_rootme_rank(profile.rootme_rank)}\n"
                     f"*Root-Me position*: {_format_rootme_position(profile.rootme_position)}\n"

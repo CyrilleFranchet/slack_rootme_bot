@@ -127,6 +127,7 @@ def test_build_profile_blocks_contains_category_section() -> None:
     blocks = build_profile_blocks(profile)
 
     assert "bob" in blocks[0]["text"]["text"]
+    assert "Root-Me ID" in blocks[1]["text"]["text"]
     assert "Root-Me rank" in blocks[1]["text"]["text"]
     assert "Root-Me position" in blocks[1]["text"]["text"]
     assert "2026-03-10" in blocks[2]["text"]["text"]
