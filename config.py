@@ -23,6 +23,9 @@ class Settings:
     rootme_request_delay_ms: int = 500
     rootme_timeout_seconds: float = 10.0
     ranking_refresh_interval_seconds: int = 3600
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str | None = None
+    ollama_timeout_seconds: float = 5.0
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -41,6 +44,9 @@ class Settings:
                 "RANKING_REFRESH_INTERVAL_SECONDS",
                 default=3600,
             ),
+            ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434"),
+            ollama_model=os.getenv("OLLAMA_MODEL"),
+            ollama_timeout_seconds=_get_float_env("OLLAMA_TIMEOUT_SECONDS", default=5.0),
         )
 
 

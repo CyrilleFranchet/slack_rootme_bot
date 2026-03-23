@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 from services.ranking import RankingEntry
-from services.rootme_client import CategoryProgress, RootMeProfile
+from services.rootme_client import CategoryProgress, ChallengeResolution, RootMeProfile
 
 
 def build_help_blocks(
@@ -179,6 +179,8 @@ def build_detailed_ranking_blocks(
 def build_challenge_solved_blocks(
     profile: RootMeProfile,
     recent_resolutions: list[ChallengeResolution],
+    *,
+    extra_message: str | None = None,
 ) -> list[dict[str, Any]]:
     lines = []
     for resolution in recent_resolutions:
@@ -187,7 +189,7 @@ def build_challenge_solved_blocks(
         else:
             lines.append(f"• {resolution.title}")
 
-    return [
+    blocks = [
         {
             "type": "header",
             "text": {"type": "plain_text", "text": ":tada: Root-Me activity"},
@@ -208,6 +210,21 @@ def build_challenge_solved_blocks(
             "text": {"type": "mrkdwn", "text": "\n".join(lines)},
         },
     ]
+
+    if extra_message:
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"_{extra_message}_",
+                    }
+                ],
+            }
+        )
+
+    return blocks
 
 
 def build_profile_blocks(profile: RootMeProfile) -> list[dict[str, Any]]:

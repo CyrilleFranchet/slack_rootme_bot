@@ -18,6 +18,7 @@ from services.rootme_client import (
     RootMeProfile,
     RootMeRateLimitError,
 )
+from services.pep_talk import OllamaPepTalkService
 from utils.formatter import build_challenge_solved_blocks
 
 
@@ -69,12 +70,18 @@ def refresh_ranking_cache(settings: Settings) -> None:
         return
 
     slack_client = _build_slack_client(settings)
+    pep_talk_service = OllamaPepTalkService(
+        base_url=settings.ollama_base_url,
+        model=settings.ollama_model,
+        timeout_seconds=settings.ollama_timeout_seconds,
+    )
     for profile in profiles:
         previous_snapshot = get_cached_score_by_rootme_id(settings.database_path, profile.id)
         cache_profile_snapshot(settings, profile)
         _announce_new_resolutions(
             settings,
             slack_client=slack_client,
+            pep_talk_service=pep_talk_service,
             profile=profile,
             previous_snapshot=previous_snapshot,
         )
@@ -107,6 +114,7 @@ def _announce_new_resolutions(
     settings: Settings,
     *,
     slack_client: WebClient | None,
+    pep_talk_service: OllamaPepTalkService,
     profile: RootMeProfile,
     previous_snapshot,
 ) -> None:
@@ -126,9 +134,17 @@ def _announce_new_resolutions(
         return
 
     try:
+        extra_message = pep_talk_service.build_message(
+            profile=profile,
+            recent_resolutions=new_resolutions,
+        )
         slack_client.chat_postMessage(
             channel=settings.slack_activity_channel_id,
-            blocks=build_challenge_solved_blocks(profile, new_resolutions),
+            blocks=build_challenge_solved_blocks(
+                profile,
+                new_resolutions,
+                extra_message=extra_message,
+            ),
             text=f"{profile.username} solved new Root-Me challenges.",
         )
     except SlackApiError:

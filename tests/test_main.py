@@ -23,6 +23,9 @@ def test_settings_loads_rootme_api_defaults(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("ROOTME_API_KEY", "api-key")
     monkeypatch.delenv("ROOTME_API_BASE_URL", raising=False)
     monkeypatch.delenv("ROOTME_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("OLLAMA_TIMEOUT_SECONDS", raising=False)
 
     settings = Settings.from_env()
 
@@ -30,3 +33,6 @@ def test_settings_loads_rootme_api_defaults(monkeypatch: pytest.MonkeyPatch) -> 
     assert settings.rootme_timeout_seconds == 10.0
     assert settings.ranking_refresh_interval_seconds == 3600
     assert settings.slack_activity_channel_id is None
+    assert settings.ollama_base_url == "http://127.0.0.1:11434"
+    assert settings.ollama_model is None
+    assert settings.ollama_timeout_seconds == 5.0

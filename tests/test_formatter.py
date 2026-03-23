@@ -105,6 +105,35 @@ def test_build_challenge_solved_blocks_contains_username_and_challenges() -> Non
     assert "JWT - Revoked token" in blocks[2]["text"]["text"]
 
 
+def test_build_challenge_solved_blocks_can_include_extra_message() -> None:
+    profile = RootMeProfile(
+        id=42,
+        username="alice",
+        score=2450,
+        rootme_rank="1203",
+        rootme_position=4521,
+        challenges_count=385,
+        profile_url="https://www.root-me.org/alice",
+        categories=(),
+        recent_resolutions=(),
+        fetched_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
+    )
+
+    blocks = build_challenge_solved_blocks(
+        profile,
+        [
+            ChallengeResolution(
+                title="JWT - Revoked token",
+                validated_at="2026-03-11 21:05:03",
+            )
+        ],
+        extra_message="That flag probably regrets existing.",
+    )
+
+    assert blocks[3]["type"] == "context"
+    assert "regrets existing" in blocks[3]["elements"][0]["text"]
+
+
 def test_build_profile_blocks_contains_category_section() -> None:
     profile = RootMeProfile(
         id=7,
